@@ -78,6 +78,7 @@ const Main = () => {
           value={currentNotebookId() || ""}
           onChange={(e) => setCurrentNotebookId(Number(e.target.value))}
         >
+          {/* eslint-disable-next-line jsx-key */}
           {notebooks().map((notebook) => (
             <option value={notebook.id}>{notebook.name}</option>
           ))}
@@ -144,6 +145,7 @@ const Main = () => {
             </button>
           </div>
           <div class="border border-gray-300 rounded">
+            {/* eslint-disable-next-line jsx-key */}
             {notebooks().map((notebook) => (
               <div class="p-2 border-t first:border-t-0 border-gray-300">{notebook.name}</div>
             ))}

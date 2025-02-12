@@ -1,10 +1,10 @@
 import os
-import pathlib
 import sqlite3
+from pathlib import Path
 from typing import Dict, List, Optional
 
 # 在用户目录下创建应用数据文件夹
-APP_DATA_DIR = os.path.join(pathlib.Path.home(), ".wordbook")
+APP_DATA_DIR = os.path.join(Path.home(), ".wordbook")
 DB_PATH = os.path.join(APP_DATA_DIR, "wordbook.db")
 
 
@@ -16,7 +16,7 @@ def init_db():
 
     # 连接数据库并创建表
     conn = get_db_connection()
-    with open("schema.sql", encoding="utf-8") as f:
+    with open(Path(__file__).parent.parent / "schema.sql", encoding="utf-8") as f:
         s = f.read()
         conn.executescript(s)
     conn.close()
@@ -42,6 +42,7 @@ def create_notebook(name: str) -> int:
     cursor = conn.cursor()
     cursor.execute("INSERT INTO notebooks (name) VALUES (?)", (name,))
     notebook_id = cursor.lastrowid
+    assert notebook_id is not None
     conn.commit()
     conn.close()
     return notebook_id
