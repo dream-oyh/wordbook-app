@@ -1,0 +1,131 @@
+name: Full Stack Deploy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    # 前端构建配置
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8
+        run_install: false
+
+    - name: Get pnpm store directory
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_ENV
+
+    - name: Setup pnpm cache
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install frontend dependencies
+      run: pnpm install
+
+    - name: Build frontend
+      run: pnpm build
+
+    # 后端配置
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Configure poetry
+      run: |
+        poetry config virtualenvs.create true
+        poetry config virtualenvs.in-project true
+
+    - name: Cache poetry dependencies
+      uses: actions/cache@v3
+      with:
+        path: src-backend/.venv
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-
+
+    - name: Install backend dependencies
+      run: |
+        cd src-backend
+        poetry install
+
+    # 部署到服务器
+    - name: Deploy to server
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          # 停止现有服务
+          pm2 stop wordbook-backend || true
+          
+          # 准备目录
+          mkdir -p /var/www/wordbook/{dist,backend}
+          
+          # 清理后端目录
+          rm -rf /var/www/wordbook/backend/*
+          
+          # 克隆代码
+          cd /var/www/wordbook/backend
+          git clone https://github.com/${{ github.repository }} .
+          
+          # 后端部署
+          cd src-backend
+          
+          # 安装 poetry（如果需要）
+          if ! command -v poetry &> /dev/null; then
+            curl -sSL https://install.python-poetry.org | python3 -
+          fi
+          
+          # 安装依赖
+          poetry install --no-dev
+          
+          # 启动后端服务
+          pm2 start "poetry run uvicorn main:app --host 0.0.0.0 --port 8000" --name wordbook-backend
+
+    # 部署前端文件
+    - name: Deploy frontend
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        source: "dist/*"
+        target: "/var/www/wordbook/dist"
+        strip_components: 1
+
+    # 重启 Nginx
+    - name: Restart Nginx
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          # 检查并重启 Nginx
+          sudo nginx -t && sudo systemctl restart nginx 
