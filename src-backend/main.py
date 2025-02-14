@@ -12,6 +12,7 @@ from db import (
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from search import search_word  # 导入搜索函数
 
 app = FastAPI()
 
@@ -169,3 +170,60 @@ def search(keyword: str):
 
     results = search_words(keyword)
     return {"words": results}
+
+
+@app.get("/api/translate")
+def translate(word: str, platform: str = "youdao"):
+    """翻译接口
+
+    Args:
+        word: 要翻译的单词
+        platform: 翻译平台 (youdao 或 bing)
+    """
+    try:
+        if not word:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "INVALID_PARAMS", "message": "单词不能为空"},
+            )
+
+        if platform not in ["youdao", "bing"]:
+            platform = "youdao"
+
+        result = search_word(word, platform)
+        return {
+            "word": result["word"],
+            "translation": result["mean_zh"],
+            "uk_pronoun": result["uk_pronoun"],
+            "us_pronoun": result["us_pronoun"],
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail={"code": "SEARCH_ERROR", "message": str(e)}
+        )
+
+
+@app.get("/api/words/{word}")
+def get_word(word: str):
+    """获取单词信息
+
+    如果单词存在于数据库中，返回其定义和笔记
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT definition, note FROM words WHERE word = ?", (word,))
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            return {
+                "exists": True,
+                "definition": result["definition"],
+                "note": result["note"],
+            }
+        return {"exists": False}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail={"code": "DATABASE_ERROR", "message": str(e)}
+        )

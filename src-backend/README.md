@@ -36,11 +36,6 @@
 
 ## API 设计
 
-// ... 保留之前的数据库设计部分 ...
-
-## API 设计
-
-
 ### 词本相关接口
 
 #### 1. 创建词本
@@ -145,13 +140,47 @@
   }
   ```
 
+### 翻译接口
+
+#### 1. 获取单词翻译
+
+- **路由**: `GET /api/translate`
+- **查询参数**:
+  - `word`: 要翻译的单词（必需）
+  - `platform`: 翻译平台（可选，默认为 "youdao"）
+    - 可选值: "youdao"（有道翻译）, "bing"（必应词典）
+- **响应**:
+  ```json
+  {
+    "word": "hello",
+    "translation": "int. 喂；哈罗\nn. 表示问候， 惊奇或唤起注意时的用语",
+    "uk_pronoun": "həˈləʊ",
+    "us_pronoun": "həˈloʊ"
+  }
+  ```
+- **错误响应**:
+
+  ```json
+  {
+    "detail": {
+      "code": "ERROR_CODE",
+      "message": "错误描述"
+    }
+  }
+  ```
+
+  常见错误码：
+
+  - `INVALID_PARAMS`: 单词参数为空
+  - `SEARCH_ERROR`: 搜索过程发生错误
+
 ### 错误处理
 
 所有 API 在发生错误时将返回统一格式的错误响应：
 
 ```json
 {
-  "error": {
+  "detail": {
     "code": "ERROR_CODE",
     "message": "错误描述"
   }
@@ -163,3 +192,4 @@
 - `NOTEBOOK_NOT_FOUND`: 词本不存在
 - `INVALID_PARAMS`: 参数无效
 - `DATABASE_ERROR`: 数据库操作错误
+- `SEARCH_ERROR`: 搜索/翻译过程发生错误
