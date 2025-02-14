@@ -1,6 +1,7 @@
 name: Full Stack Deploy
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
   pull_request:
@@ -13,24 +14,39 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    # 添加调试信息
+    - name: Show Debug Info
+      if: ${{ inputs.debug_mode }}
+      run: |
+        echo "部署目标: ${{ inputs.deploy_target }}"
+        echo "Node版本: $(node -v)"
+        echo "Python版本: $(python3 -v)"
+        echo "工作目录: $(pwd)"
+        echo "仓库: ${{ github.repository }}"
+        ls -la
+
     # 前端构建配置
     - name: Setup Node.js
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'frontend' }}
       uses: actions/setup-node@v3
       with:
         node-version: '18'
 
     - name: Setup pnpm
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'frontend' }}
       uses: pnpm/action-setup@v2
       with:
         version: 8
         run_install: false
 
     - name: Get pnpm store directory
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'frontend' }}
       shell: bash
       run: |
         echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_ENV
 
     - name: Setup pnpm cache
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'frontend' }}
       uses: actions/cache@v3
       with:
         path: ${{ env.STORE_PATH }}
@@ -39,28 +55,34 @@ jobs:
           ${{ runner.os }}-pnpm-store-
 
     - name: Install frontend dependencies
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'frontend' }}
       run: pnpm install
 
     - name: Build frontend
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'frontend' }}
       run: pnpm build
 
     # 后端配置
     - name: Setup Python
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'backend' }}
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
     - name: Install poetry
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'backend' }}
       run: |
         curl -sSL https://install.python-poetry.org | python3 -
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
     - name: Configure poetry
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'backend' }}
       run: |
         poetry config virtualenvs.create true
         poetry config virtualenvs.in-project true
 
     - name: Cache poetry dependencies
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'backend' }}
       uses: actions/cache@v3
       with:
         path: src-backend/.venv
@@ -69,18 +91,27 @@ jobs:
           ${{ runner.os }}-poetry-
 
     - name: Install backend dependencies
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'backend' }}
       run: |
         cd src-backend
         poetry install
 
     # 部署到服务器
     - name: Deploy to server
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'backend' }}
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USERNAME }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         script: |
+          # 调试信息
+          if [[ "${{ inputs.debug_mode }}" == "true" ]]; then
+            echo "当前目录: $(pwd)"
+            echo "系统信息: $(uname -a)"
+            echo "磁盘空间: $(df -h)"
+          fi
+          
           # 停止现有服务
           pm2 stop wordbook-backend || true
           
@@ -110,6 +141,7 @@ jobs:
 
     # 部署前端文件
     - name: Deploy frontend
+      if: ${{ inputs.deploy_target == 'all' || inputs.deploy_target == 'frontend' }}
       uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.SERVER_HOST }}
@@ -127,5 +159,9 @@ jobs:
         username: ${{ secrets.SERVER_USERNAME }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         script: |
+          if [[ "${{ inputs.debug_mode }}" == "true" ]]; then
+            echo "Nginx 配置检查:"
+            nginx -T
+          fi
           # 检查并重启 Nginx
           sudo nginx -t && sudo systemctl restart nginx 
