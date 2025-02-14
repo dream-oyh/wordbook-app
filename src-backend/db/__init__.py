@@ -49,60 +49,58 @@ def create_notebook(name: str) -> int:
 
 
 def add_word_to_notebook(
-    notebook_id: int,
-    word: str,
-    definition: Optional[str] = None,
-    note: Optional[str] = None,
+    notebook_id: int, word: str, definition: str = None, note: str = None
 ) -> bool:
-    """向指定单词本添加单词
+    """添加或更新单词到词本
 
     Args:
-        notebook_id: 单词本ID
+        notebook_id: 词本ID
         word: 单词
-        definition: 单词释义
-        note: 笔记
+        definition: 翻译内容
+        note: 笔记内容
 
     Returns:
-        是否添加成功
+        bool: 是否成功
     """
-    conn = get_db_connection()
-    cursor = conn.cursor()
     try:
-        flag = False
-        # 检查单词是否存在, 存在则只更新不插入记录
-        cursor.execute("SELECT id FROM words WHERE word = ?", (word,))
-        if cursor.fetchone() is not None:
-            flag = True
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        # 首先尝试插入单词到words表（如果不存在）
+        # 使用 INSERT OR REPLACE 来插入或更新单词
         cursor.execute(
             """
-            INSERT OR IGNORE INTO words (word, definition, note)
+            INSERT OR REPLACE INTO words (word, definition, note)
             VALUES (?, ?, ?)
-        """,
+            """,
             (word, definition, note),
         )
+        word_id = (
+            cursor.lastrowid
+            or cursor.execute(
+                "SELECT id FROM words WHERE word = ?", (word,)
+            ).fetchone()["id"]
+        )
 
-        # 获取word_id（无论是新插入的还是已存在的）
-        cursor.execute("SELECT id FROM words WHERE word = ?", (word,))
-        word_id = cursor.fetchone()["id"]
-
-        # 在word_entries表中创建关联
-        if not flag:
+        # 检查是否已经在词本中
+        cursor.execute(
+            "SELECT id FROM word_entries WHERE word_id = ? AND notebook_id = ?",
+            (word_id, notebook_id),
+        )
+        if not cursor.fetchone():
+            # 如果不在词本中，添加关联
             cursor.execute(
-                """
-                INSERT INTO word_entries (word_id, notebook_id)
-                VALUES (?, ?)
-            """,
+                "INSERT INTO word_entries (word_id, notebook_id) VALUES (?, ?)",
                 (word_id, notebook_id),
             )
+            print(f"添加词本关联: word_id={word_id}, notebook_id={notebook_id}")
 
         conn.commit()
-        return True
-    except sqlite3.Error:
-        return False
-    finally:
         conn.close()
+        return True
+
+    except Exception as e:
+        print(f"添加单词失败：{e}")
+        return False
 
 
 def get_notebook_words(

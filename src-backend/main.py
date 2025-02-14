@@ -12,6 +12,7 @@ from db import (
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from search import search_word
 
 app = FastAPI()
 
