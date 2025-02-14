@@ -22,3 +22,4 @@ dist-ssr
 *.sw?
 
 .vscode
+__pycache__

@@ -12,7 +12,6 @@ from db import (
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from search import search_word  # 导入搜索函数
 
 app = FastAPI()
 
