@@ -1,6 +1,7 @@
 import { createSignal, onMount, Component, createEffect } from "solid-js";
 import "./index.css";
 import axios from "./api/axios";
+import NotebookDetail from "./components/NotebookDetail";
 
 interface Notebook {
   id: number;
@@ -8,7 +9,7 @@ interface Notebook {
   created_at: string;
 }
 
-// 词本选择器组件
+// 词书选择器组件
 const NotebookSelector: Component<{
   notebooks: Notebook[];
   currentId: number | null;
@@ -32,7 +33,7 @@ const NotebookSelector: Component<{
           "padding-left": "3rem",
         }}
       >
-        <span class="flex-1 text-center">{props.notebooks.find((n) => n.id === props.currentId)?.name || "选择词本"}</span>
+        <span class="flex-1 text-center">{props.notebooks.find((n) => n.id === props.currentId)?.name || "选择词书"}</span>
       </button>
       <div class="absolute left-0 mt-1 bg-white shadow-lg rounded-sm z-10 w-full hidden">
         <div class="py-1">
@@ -166,6 +167,10 @@ const Main = () => {
   // 添加一个状态来跟踪搜索框是否有焦点
   const [isSearchFocused, setIsSearchFocused] = createSignal(false);
 
+  // 在 Main 组件中添加路由状态
+  const [currentRoute, setCurrentRoute] = createSignal<string>("main");
+  const [selectedNotebook, setSelectedNotebook] = createSignal<Notebook | null>(null);
+
   const fetchNotebooks = async () => {
     try {
       const response = await axios.get("/api/notebooks");
@@ -174,14 +179,14 @@ const Main = () => {
         setCurrentNotebookId(response.data.notebooks[0].id);
       }
     } catch (error) {
-      console.error("获取词本列表失败：", error);
+      console.error("获取词书列表失败：", error);
     }
   };
 
   const handleClickOutside = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
 
-    // 处理新建词本输入框
+    // 处理新建词书输入框
     if (target.closest(".create-notebook-btn")) {
       return;
     }
@@ -195,7 +200,7 @@ const Main = () => {
       setShowTranslateDropdown(false);
     }
 
-    // 处理词本选择下拉框 - 点击外部时关闭
+    // 处理词书选择下拉框 - 点击外部时关闭
     if (!target.closest(".notebook-select")) {
       const dropdown = document.querySelector(".notebook-select > div:last-child");
       if (dropdown && !dropdown.classList.contains("hidden")) {
@@ -204,17 +209,47 @@ const Main = () => {
     }
   };
 
+  // 添加全局快捷键处理
+  const handleGlobalKeyPress = async (e: KeyboardEvent) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+
+      // 先检查是否满足添加条件
+      if (!currentNotebookId()) {
+        alert("请先选择词书");
+        return;
+      }
+
+      if (!searchWord()) {
+        alert("请输入要添加的单词");
+        return;
+      }
+
+      if (!translationContent()) {
+        alert("请先搜索获取翻译");
+        return;
+      }
+
+      // 如果所有条件都满足，直接执行添加操作
+      console.log("Global shortcut: Ctrl+Enter");
+      handleAddToNotebook(); // 直接添加到词书
+    }
+  };
+
+  // 在 onMount 中添加全局事件监听
   onMount(() => {
     fetchNotebooks();
     document.addEventListener("click", handleClickOutside);
+    document.addEventListener("keydown", handleGlobalKeyPress);
     return () => {
       document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("keydown", handleGlobalKeyPress);
     };
   });
 
   const handleCreateNotebook = async () => {
     if (!newNotebookName().trim()) {
-      alert("请输入词本名称");
+      alert("请输入词书名称");
       return;
     }
 
@@ -222,25 +257,22 @@ const Main = () => {
       const response = await axios.post("/api/notebooks", {
         name: newNotebookName(),
       });
-      console.log("创建词本成功：", response.data);
+      console.log("创建词书成功：", response.data);
       await fetchNotebooks();
       setNewNotebookName("");
       setShowNotebookInput(false);
     } catch (error) {
-      console.error("创建词本失败：", error);
+      console.error("创建词书失败：", error);
     }
   };
 
+  // 修改原有的 handleWordKeyPress 函数
   const handleWordKeyPress = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === "Enter") {
-      e.preventDefault();
-
-      // 只有在搜索框有焦点时才处理回车搜索
       if (isSearchFocused()) {
-        if (e.ctrlKey || e.metaKey) {
-          console.log("Executing add to notebook...");
-          handleAddToNotebook();
-        } else {
+        e.preventDefault();
+        if (!e.ctrlKey && !e.metaKey) {
+          // 只有普通回车才触发搜索
           console.log("Executing search...");
           handleSearch();
         }
@@ -249,52 +281,32 @@ const Main = () => {
   };
 
   const handleAddToNotebook = async () => {
-    if (!currentNotebookId()) {
-      alert("请先选择词本");
-      return;
-    }
-
-    if (!searchWord()) {
-      alert("请输入要添加的单词");
-      return;
-    }
-
-    if (!translationContent()) {
-      alert("请先搜索获取翻译");
-      return;
-    }
-
     try {
-      // 确保使用最新的翻译和笔记内容
       const wordData = {
         word: searchWord(),
-        definition: translationContent().trim(), // 确保去除空白字符
-        note: noteContent().trim(), // 确保去除空白字符
+        definition: translationContent().trim(),
+        note: noteContent().trim(),
       };
 
-      console.log("准备添加单词：", wordData); // 添加调试日志
+      console.log("准备添加单词：", wordData);
 
       const response = await axios.post(`/api/notebooks/${currentNotebookId()}/words`, wordData);
 
       if (response.data.success) {
-        console.log("添加到词本成功：", response.data);
+        console.log("添加到词书成功：", response.data);
 
         // 清空输入
         setSearchWord("");
         setTranslationContent("");
         setNoteContent("");
 
-        await new Promise<void>((resolve) => {
-          window.alert("添加成功！");
-          resolve();
-        });
-
+        alert("添加成功！");
         searchInputRef?.focus();
       } else {
         throw new Error("添加失败");
       }
     } catch (error) {
-      console.error("添加到词本失败：", error);
+      console.error("添加到词书失败：", error);
       alert("添加失败，请重试");
     }
   };
@@ -302,6 +314,20 @@ const Main = () => {
   const handleTranslatorSelect = (translator: string) => {
     setCurrentTranslator(translator);
     setShowTranslateDropdown(false);
+  };
+
+  // 添加自动调整高度的函数
+  const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
+    // 重置高度以便重新计算
+    textarea.style.height = "128px"; // 设置为最小高度
+
+    // 计算内容高度
+    const scrollHeight = textarea.scrollHeight;
+
+    // 如果内容高度大于最小高度，则扩展文本框
+    if (scrollHeight > 128) {
+      textarea.style.height = `${scrollHeight}px`;
+    }
   };
 
   // 添加一个副作用来处理翻译内容变化时的高度调整
@@ -359,94 +385,120 @@ const Main = () => {
 
   return (
     <div class="container mx-auto p-4 flex-1">
-      <div class="flex flex-col items-center">
-        <div class="w-[600px]">
-          <NotebookSelector notebooks={notebooks()} currentId={currentNotebookId()} onSelect={(id) => setCurrentNotebookId(id)} />
-        </div>
+      {currentRoute() === "main" ? (
+        <div class="flex flex-col items-center">
+          <div class="w-[600px]">
+            <NotebookSelector notebooks={notebooks()} currentId={currentNotebookId()} onSelect={(id) => setCurrentNotebookId(id)} />
+          </div>
 
-        <div class="mt-8 w-[600px]">
-          <div class="flex items-center space-x-2 mb-4">
-            <TranslatorSelector
-              current={currentTranslator()}
-              onSelect={handleTranslatorSelect}
-              show={showTranslateDropdown()}
-              onToggle={() => setShowTranslateDropdown(!showTranslateDropdown())}
-            />
-            <input
-              type="text"
-              value={searchWord()}
-              onInput={(e) => setSearchWord(e.currentTarget.value)}
-              onKeyPress={handleWordKeyPress}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
-              placeholder="搜索单词"
-              class="flex-1 border border-gray-300 rounded-full py-2 px-4"
-              ref={searchInputRef}
-            />
-            <div class="relative">
-              <button class="bg-gray-200 hover:bg-gray-300 rounded-full p-2" onClick={handleSearch}>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </button>
+          <div class="mt-8 w-[600px]">
+            <div class="flex items-center space-x-2 mb-4">
+              <TranslatorSelector
+                current={currentTranslator()}
+                onSelect={handleTranslatorSelect}
+                show={showTranslateDropdown()}
+                onToggle={() => setShowTranslateDropdown(!showTranslateDropdown())}
+              />
+              <input
+                type="text"
+                value={searchWord()}
+                onInput={(e) => setSearchWord(e.currentTarget.value)}
+                onKeyPress={handleWordKeyPress}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
+                placeholder="搜索单词"
+                class="flex-1 border border-gray-300 rounded-full py-2 px-4"
+                ref={searchInputRef}
+              />
+              <div class="relative">
+                <button class="bg-gray-200 hover:bg-gray-300 rounded-full p-2" onClick={handleSearch}>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="flex flex-col space-x-4">
+              <AutoResizeTextarea value={translationContent()} onChange={updateTranslation} placeholder="翻译" minHeight="8rem" />
+            </div>
+            <div class="flex flex-col space-x-4 mt-2">
+              <AutoResizeTextarea value={noteContent()} onChange={setNoteContent} placeholder="笔记" minHeight="8rem" />
             </div>
           </div>
-          <div class="flex flex-col space-x-4">
-            <AutoResizeTextarea value={translationContent()} onChange={updateTranslation} placeholder="翻译" minHeight="8rem" />
-          </div>
-          <div class="flex flex-col space-x-4 mt-2">
-            <AutoResizeTextarea value={noteContent()} onChange={setNoteContent} placeholder="笔记" minHeight="8rem" />
-          </div>
-        </div>
 
-        <div class="mt-8 w-[600px]">
-          <div class="flex space-x-4 mb-4 relative">
-            <button class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded create-notebook-btn" onClick={() => setShowNotebookInput(true)}>
-              新建词本
-            </button>
-            {showNotebookInput() && (
-              <div class="absolute top-12 left-0 z-10 bg-white shadow-lg rounded-lg p-2 w-[400px] animate-fade-in notebook-input-container">
-                <div class="flex space-x-2">
-                  <input
-                    type="text"
-                    value={newNotebookName()}
-                    onInput={(e) => setNewNotebookName(e.currentTarget.value)}
-                    onKeyPress={handleWordKeyPress}
-                    placeholder="输入词本名称"
-                    class="flex-1 border border-gray-300 rounded py-2 px-4 text-gray-900"
-                    autofocus
-                  />
-                  <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded" onClick={handleCreateNotebook}>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </button>
-                  <button
-                    class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-                    onClick={() => {
-                      setShowNotebookInput(false);
-                      setNewNotebookName("");
-                    }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+          <div class="mt-8 w-[600px]">
+            <div class="flex space-x-4 mb-4 relative">
+              <button
+                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded create-notebook-btn"
+                onClick={() => setShowNotebookInput(true)}
+              >
+                新建词书
+              </button>
+              {showNotebookInput() && (
+                <div class="absolute top-12 left-0 z-10 bg-white shadow-lg rounded-lg p-2 w-[400px] animate-fade-in notebook-input-container">
+                  <div class="flex space-x-2">
+                    <input
+                      type="text"
+                      value={newNotebookName()}
+                      onInput={(e) => setNewNotebookName(e.currentTarget.value)}
+                      onKeyPress={handleWordKeyPress}
+                      placeholder="输入词书名称"
+                      class="flex-1 border border-gray-300 rounded py-2 px-4 text-gray-900"
+                      autofocus
+                    />
+                    <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded" onClick={handleCreateNotebook}>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                    <button
+                      class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                      onClick={() => {
+                        setShowNotebookInput(false);
+                        setNewNotebookName("");
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-            <button class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded" onClick={handleAddToNotebook}>
-              添加单词进词本
-            </button>
-          </div>
-          <div class="border border-gray-300 rounded">
-            {/* eslint-disable-next-line jsx-key */}
-            {notebooks().map((notebook) => (
-              <div class="p-2 border-t first:border-t-0 border-gray-300">{notebook.name}</div>
-            ))}
+              )}
+              <button
+                class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded flex items-center space-x-2"
+                onClick={handleAddToNotebook}
+                title="快捷键：Ctrl + Enter"
+              >
+                <span>添加单词进词书</span>
+                <span class="text-xs opacity-75">(Ctrl + ↵)</span>
+              </button>
+            </div>
+            <div class="border border-gray-300 rounded">
+              {notebooks().map((notebook) => (
+                <div
+                  class="p-2 border-t first:border-t-0 border-gray-300 cursor-pointer hover:underline text-white"
+                  onClick={() => {
+                    setSelectedNotebook(notebook);
+                    setCurrentRoute("notebook-detail");
+                  }}
+                >
+                  {notebook.name}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      ) : currentRoute() === "notebook-detail" && selectedNotebook() ? (
+        <NotebookDetail
+          notebookId={selectedNotebook()!.id}
+          notebookName={selectedNotebook()!.name}
+          onBack={() => {
+            setCurrentRoute("main");
+            setSelectedNotebook(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 };

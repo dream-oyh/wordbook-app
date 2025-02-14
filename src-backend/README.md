@@ -174,6 +174,65 @@
   - `INVALID_PARAMS`: 单词参数为空
   - `SEARCH_ERROR`: 搜索过程发生错误
 
+### 单词操作接口
+
+#### 1. 移动单词到其他词书
+
+- **路由**: `POST /api/notebooks/{target_notebook_id}/words/move`
+- **请求体**:
+  ```json
+  {
+    "sourceNotebookId": 1,
+    "word": "hello"
+  }
+  ```
+- **响应**:
+  ```json
+  {
+    "success": true
+  }
+  ```
+- **错误响应**:
+  ```json
+  {
+    "detail": {
+      "code": "WORD_NOT_FOUND",
+      "message": "单词不存在"
+    }
+  }
+  ```
+
+#### 2. 复制单词到其他词书
+
+- **路由**: `POST /api/notebooks/{target_notebook_id}/words/copy`
+- **请求体**:
+  ```json
+  {
+    "word": "hello"
+  }
+  ```
+- **响应**:
+  ```json
+  {
+    "success": true
+  }
+  ```
+- **错误响应**:
+  ```json
+  {
+    "detail": {
+      "code": "WORD_NOT_FOUND",
+      "message": "单词不存在"
+    }
+  }
+  ```
+
+常见错误码：
+
+- `INVALID_PARAMS`: 缺少必要参数
+- `WORD_NOT_FOUND`: 单词不存在
+- `DATABASE_ERROR`: 数据库操作错误
+
 ### 错误处理
 
 所有 API 在发生错误时将返回统一格式的错误响应：

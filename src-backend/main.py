@@ -227,3 +227,137 @@ def get_word(word: str):
         raise HTTPException(
             status_code=500, detail={"code": "DATABASE_ERROR", "message": str(e)}
         )
+
+
+@app.delete("/api/notebooks/{notebook_id}/words/{word}")
+def delete_word_from_notebook(notebook_id: int, word: str):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 获取单词ID
+        cursor.execute("SELECT id FROM words WHERE word = ?", (word,))
+        word_result = cursor.fetchone()
+        
+        if not word_result:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "WORD_NOT_FOUND", "message": "单词不存在"}
+            )
+            
+        word_id = word_result["id"]
+        
+        # 从词书中删除单词
+        cursor.execute(
+            "DELETE FROM word_entries WHERE word_id = ? AND notebook_id = ?",
+            (word_id, notebook_id)
+        )
+        
+        conn.commit()
+        conn.close()
+        
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "DATABASE_ERROR", "message": str(e)}
+        )
+
+
+@app.post("/api/notebooks/{target_notebook_id}/words/move")
+def move_word(target_notebook_id: int, move_data: dict):
+    """将单词从一个词书移动到另一个词书"""
+    try:
+        source_notebook_id = move_data.get("sourceNotebookId")
+        word = move_data.get("word")
+        
+        if not all([source_notebook_id, word]):
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "INVALID_PARAMS", "message": "缺少必要参数"}
+            )
+            
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 获取单词ID
+        cursor.execute("SELECT id FROM words WHERE word = ?", (word,))
+        word_result = cursor.fetchone()
+        
+        if not word_result:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "WORD_NOT_FOUND", "message": "单词不存在"}
+            )
+            
+        word_id = word_result["id"]
+        
+        # 更新词书关联
+        cursor.execute(
+            """
+            UPDATE word_entries 
+            SET notebook_id = ? 
+            WHERE word_id = ? AND notebook_id = ?
+            """,
+            (target_notebook_id, word_id, source_notebook_id)
+        )
+        
+        conn.commit()
+        conn.close()
+        
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "DATABASE_ERROR", "message": str(e)}
+        )
+
+
+@app.post("/api/notebooks/{target_notebook_id}/words/copy")
+def copy_word(target_notebook_id: int, copy_data: dict):
+    """将单词从一个词书复制到另一个词书"""
+    try:
+        word = copy_data.get("word")
+        
+        if not word:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "INVALID_PARAMS", "message": "缺少必要参数"}
+            )
+            
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 获取单词ID
+        cursor.execute("SELECT id FROM words WHERE word = ?", (word,))
+        word_result = cursor.fetchone()
+        
+        if not word_result:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "WORD_NOT_FOUND", "message": "单词不存在"}
+            )
+            
+        word_id = word_result["id"]
+        
+        # 检查是否已存在于目标词书
+        cursor.execute(
+            "SELECT id FROM word_entries WHERE word_id = ? AND notebook_id = ?",
+            (word_id, target_notebook_id)
+        )
+        if not cursor.fetchone():
+            # 添加新的词书关联
+            cursor.execute(
+                "INSERT INTO word_entries (word_id, notebook_id) VALUES (?, ?)",
+                (word_id, target_notebook_id)
+            )
+        
+        conn.commit()
+        conn.close()
+        
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "DATABASE_ERROR", "message": str(e)}
+        )
