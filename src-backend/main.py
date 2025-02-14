@@ -166,22 +166,23 @@ def add_word_to_notebook(notebook_id: int, word_data: dict):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # 首先检查该单词是否已经在这个词书中
-        cursor.execute(
-            """
-            SELECT w.id 
-            FROM words w
-            JOIN word_entries we ON w.id = we.word_id
-            WHERE w.word = ? AND we.notebook_id = ?
-        """,
-            (word, notebook_id),
-        )
-
-        if cursor.fetchone():
+        # 获取词书名称
+        cursor.execute("SELECT name FROM notebooks WHERE id = ?", (notebook_id,))
+        notebook = cursor.fetchone()
+        if not notebook:
             raise HTTPException(
-                status_code=400,
-                detail={"code": "WORD_EXISTS", "message": "该单词已在词书中"},
+                status_code=404,
+                detail={"code": "NOTEBOOK_NOT_FOUND", "message": "词书不存在"},
             )
+
+        notebook_name = notebook["name"]
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # 添加时间戳到笔记
+        note_with_timestamp = note.strip()
+        if note_with_timestamp:
+            note_with_timestamp += "\n"  # 只有在笔记不为空时才添加换行
+        note_with_timestamp += f"Added in {notebook_name} at {current_time}\n"
 
         # 检查单词是否已存在于 words 表
         cursor.execute("SELECT id FROM words WHERE word = ?", (word,))
@@ -192,21 +193,27 @@ def add_word_to_notebook(notebook_id: int, word_data: dict):
             # 更新已存在的单词定义和笔记
             cursor.execute(
                 "UPDATE words SET definition = ?, note = ? WHERE id = ?",
-                (definition, note, word_id),
+                (definition, note_with_timestamp, word_id),
+            )
+
+            # 检查并添加词书关联（如果不存在）
+            cursor.execute(
+                "INSERT OR IGNORE INTO word_entries (word_id, notebook_id) VALUES (?, ?)",
+                (word_id, notebook_id),
             )
         else:
             # 插入新单词
             cursor.execute(
                 "INSERT INTO words (word, definition, note) VALUES (?, ?, ?)",
-                (word, definition, note),
+                (word, definition, note_with_timestamp),
             )
             word_id = cursor.lastrowid
 
-        # 添加词书关联
-        cursor.execute(
-            "INSERT INTO word_entries (word_id, notebook_id) VALUES (?, ?)",
-            (word_id, notebook_id),
-        )
+            # 添加词书关联
+            cursor.execute(
+                "INSERT INTO word_entries (word_id, notebook_id) VALUES (?, ?)",
+                (word_id, notebook_id),
+            )
 
         conn.commit()
         conn.close()

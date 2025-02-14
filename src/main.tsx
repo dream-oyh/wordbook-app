@@ -271,15 +271,17 @@ const Main = () => {
   };
 
   // 修改原有的 handleWordKeyPress 函数
-  const handleWordKeyPress = (e: KeyboardEvent<HTMLElement>) => {
+  const handleWordKeyPress = (e: KeyboardEvent) => {
     if (e.key === "Enter") {
-      if (isSearchFocused()) {
+      if (e.ctrlKey) {
+        handleAddToNotebook();
+      } else if (showNotebookInput()) {
+        handleCreateNotebook();
+      } else if (isSearchFocused()) {
         e.preventDefault();
-        if (!e.ctrlKey && !e.metaKey) {
-          // 只有普通回车才触发搜索
-          console.log("Executing search...");
-          handleSearch();
-        }
+        // 只有普通回车才触发搜索
+        console.log("Executing search...");
+        handleSearch();
       }
     }
   };

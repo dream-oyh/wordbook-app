@@ -16,7 +16,7 @@ const NotebookDetail: Component<{
   const [words, setWords] = createSignal<Word[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [isSelectionMode, setIsSelectionMode] = createSignal(false);
-  const [selectedWords, setSelectedWords] = createSignal<Set<string>>(new Set());
+  const [selectedWords, setSelectedWords] = createSignal<Set<string>>(new Set<string>());
   const [notebooks, setNotebooks] = createSignal<Array<{ id: number; name: string }>>([]);
   const [showNotebookSelect, setShowNotebookSelect] = createSignal<false | "move" | "copy">(false);
 
@@ -61,13 +61,11 @@ const NotebookDetail: Component<{
     }
 
     try {
-      const promises = Array.from(selectedWords()).map((word) => 
-        axios.delete(`/api/notebooks/${props.notebookId}/words/${encodeURIComponent(word)}`)
-      );
+      const promises = Array.from(selectedWords()).map((word) => axios.delete(`/api/notebooks/${props.notebookId}/words/${encodeURIComponent(word)}`));
       await Promise.all(promises);
       alert("删除成功！");
       setIsSelectionMode(false);
-      setSelectedWords(new Set());
+      setSelectedWords(new Set<string>());
       await fetchWords();
     } catch (error) {
       console.error("批量删除失败：", error);
@@ -91,7 +89,7 @@ const NotebookDetail: Component<{
       await Promise.all(promises);
       alert("移动成功！");
       setIsSelectionMode(false);
-      setSelectedWords(new Set());
+      setSelectedWords(new Set<string>());
       setShowNotebookSelect(false);
       await fetchWords();
     } catch (error) {
@@ -116,7 +114,7 @@ const NotebookDetail: Component<{
       await Promise.all(promises);
       alert("复制成功！");
       setIsSelectionMode(false);
-      setSelectedWords(new Set());
+      setSelectedWords(new Set<string>());
       setShowNotebookSelect(false);
     } catch (error) {
       console.error("批量复制失败：", error);
@@ -202,7 +200,7 @@ const NotebookDetail: Component<{
                 class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
                 onClick={() => {
                   setIsSelectionMode(false);
-                  setSelectedWords(new Set());
+                  setSelectedWords(new Set<string>());
                   setShowNotebookSelect(false);
                 }}
               >
@@ -238,15 +236,20 @@ const NotebookDetail: Component<{
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               {words().map((word) => (
-                <tr class="hover:bg-gray-50">
+                <tr class="hover:bg-gray-50 cursor-pointer" onClick={() => isSelectionMode() && toggleWordSelection(word.word)}>
                   {isSelectionMode() && (
                     <td class="px-6 py-4 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={selectedWords().has(word.word)}
-                        onChange={() => toggleWordSelection(word.word)}
-                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
+                      <div class="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedWords().has(word.word)}
+                          onChange={(e) => {
+                            e.stopPropagation(); // 防止触发行点击事件
+                            toggleWordSelection(word.word);
+                          }}
+                          class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                      </div>
                     </td>
                   )}
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{word.word}</td>
