@@ -171,6 +171,10 @@ const Main = () => {
   const [currentRoute, setCurrentRoute] = createSignal<string>("main");
   const [selectedNotebook, setSelectedNotebook] = createSignal<Notebook | null>(null);
 
+  // 添加重命名状态
+  const [editingNotebookId, setEditingNotebookId] = createSignal<number | null>(null);
+  const [editingNotebookName, setEditingNotebookName] = createSignal("");
+
   const fetchNotebooks = async () => {
     try {
       const response = await axios.get("/api/notebooks");
@@ -305,9 +309,14 @@ const Main = () => {
       } else {
         throw new Error("添加失败");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("添加到词书失败：", error);
-      alert("添加失败，请重试");
+      // 检查是否是重复添加的错误
+      if (error.response?.data?.detail?.code === "WORD_EXISTS") {
+        alert("该单词已在词书中");
+      } else {
+        alert("添加失败，请重试");
+      }
     }
   };
 
@@ -383,10 +392,61 @@ const Main = () => {
     }
   };
 
+  const handleDeleteNotebook = async (notebookId: number) => {
+    try {
+      await axios.delete(`/api/notebooks/${notebookId}`);
+      await fetchNotebooks();
+    } catch (error) {
+      console.error("删除词书失败：", error);
+      alert("删除失败，请重试");
+    }
+  };
+
+  const handleCopyNotebook = async (notebookId: number) => {
+    try {
+      const response = await axios.post(`/api/notebooks/${notebookId}/copy`);
+      if (response.data.success) {
+        await fetchNotebooks();
+      }
+    } catch (error) {
+      console.error("复制词书失败：", error);
+      alert("复制失败，请重试");
+    }
+  };
+
+  // 添加重命名处理函数
+  const handleRenameNotebook = async (notebookId: number, newName: string) => {
+    try {
+      if (!newName.trim()) {
+        alert("词书名称不能为空");
+        return;
+      }
+
+      const response = await axios.put(`/api/notebooks/${notebookId}`, {
+        name: newName.trim(),
+      });
+
+      if (response.data.success) {
+        await fetchNotebooks();
+        setEditingNotebookId(null);
+        setEditingNotebookName("");
+      }
+    } catch (error) {
+      console.error("重命名词书失败：", error);
+      alert("重命名失败，请重试");
+    }
+  };
+
   return (
     <div class="container mx-auto p-4 flex-1">
       {currentRoute() === "main" ? (
         <div class="flex flex-col items-center">
+          {/* Logo 和标题容器 */}
+          <div class="flex items-center justify-center w-full mb-8 space-x-4">
+            <img src="/logo.png" alt="wordbook logo" class="h-12 w-auto" />
+            <span class="text-3xl font-bold text-white">WORDBOOK</span>
+          </div>
+
           <div class="w-[600px]">
             <NotebookSelector notebooks={notebooks()} currentId={currentNotebookId()} onSelect={(id) => setCurrentNotebookId(id)} />
           </div>
@@ -476,14 +536,96 @@ const Main = () => {
             </div>
             <div class="border border-gray-300 rounded">
               {notebooks().map((notebook) => (
-                <div
-                  class="p-2 border-t first:border-t-0 border-gray-300 cursor-pointer hover:underline text-white"
-                  onClick={() => {
-                    setSelectedNotebook(notebook);
-                    setCurrentRoute("notebook-detail");
-                  }}
-                >
-                  {notebook.name}
+                <div class="p-2 border-t first:border-t-0 border-gray-300 flex items-center justify-between">
+                  {editingNotebookId() === notebook.id ? (
+                    <input
+                      type="text"
+                      value={editingNotebookName()}
+                      onInput={(e) => setEditingNotebookName(e.currentTarget.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter") {
+                          handleRenameNotebook(notebook.id, editingNotebookName());
+                        } else if (e.key === "Escape") {
+                          setEditingNotebookId(null);
+                          setEditingNotebookName("");
+                        }
+                      }}
+                      onBlur={() => {
+                        setEditingNotebookId(null);
+                        setEditingNotebookName("");
+                      }}
+                      class="flex-1 px-2 py-1 border border-gray-300 rounded text-gray-900"
+                      autofocus
+                    />
+                  ) : (
+                    <div
+                      class="cursor-pointer hover:underline text-white flex-1"
+                      onClick={() => {
+                        setSelectedNotebook(notebook);
+                        setCurrentRoute("notebook-detail");
+                      }}
+                    >
+                      {notebook.name}
+                    </div>
+                  )}
+                  <div class="flex space-x-2">
+                    <button
+                      class="p-1 text-gray-400 hover:text-yellow-500 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingNotebookId(notebook.id);
+                        setEditingNotebookName(notebook.name);
+                      }}
+                      title="重命名"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      class="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`确定要复制词书 "${notebook.name}" 吗？`)) {
+                          handleCopyNotebook(notebook.id);
+                        }
+                      }}
+                      title="创建副本"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      class="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`确定要删除词书 "${notebook.name}" 吗？这将删除词书中的所有单词。`)) {
+                          handleDeleteNotebook(notebook.id);
+                        }
+                      }}
+                      title="删除词书"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
