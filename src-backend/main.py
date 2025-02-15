@@ -12,10 +12,15 @@ from db import (
 )
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from search import search_word
 
 app = FastAPI()
+dist = Path("dist")
+if not dist.exists():
+    dist = Path(__file__).parent.parent / "dist"
 
 # CORS 配置
 app.add_middleware(
@@ -25,6 +30,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 挂载静态文件
+app.mount(
+    "/assets",
+    StaticFiles(directory=dist / "assets"),
+    name="assets",
+)
+
+
+@app.get("/")
+async def read_root():
+    return FileResponse(dist / "index.html")
+
+
+@app.get("/{xxx}")
+async def read_static(xxx: str):
+    return FileResponse(dist / xxx)
 
 
 def init_database():

@@ -444,8 +444,9 @@ const Main = () => {
       {currentRoute() === "main" ? (
         <div class="flex flex-col items-center">
           {/* Logo 和标题容器 */}
-          <div class="flex items-center justify-center w-full mb-8 space-x-4">
-            <img src="/logo.png" alt="wordbook logo" class="h-12 w-auto" />
+          <div class="flex flex-row items-center justify-center w-full mb-8 space-x-4 gap-4">
+            <img src="/logo.png" alt="wordbook logo" style={{ height: "2rem", width: "2rem" }} />
+            <span></span>
             <span class="text-3xl font-bold text-white">WORDBOOK</span>
           </div>
 

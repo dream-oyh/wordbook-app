@@ -25,85 +25,59 @@
 - SQLite - 轻量级数据库
 - Poetry - Python 依赖管理
 
-## 环境要求
+## 部署
+
+可以使用 docker 进行项目本地部署。
+
+```sh
+docker run -d \
+  --name wordbook \
+  -p 80:80 \
+  -v ~/.wordbook:/root/.wordbook \
+  ghcr.io/dream-oyh/wordbook-app:main
+```
+
+## 开发环境配置
+
+### 要求
 
 - Node.js >= 18
 - Python >= 3.11
 - pnpm >= 8.0
 - poetry >= 1.7
 
-## 环境配置
-
-1. 克隆项目：
-
 ```bash
+# 1. 克隆项目
 git clone https://github.com/your-username/wordbook.git
 cd wordbook
-```
-
-2. 安装前端依赖：
-
-```bash
+# 2. 安装前端依赖
 pnpm install
-```
-
-3. 安装后端依赖：
-
-```bash
+# 3. 安装后端依赖
 cd src-backend
 pip install poetry
 poetry config virtualenvs.in-project true
 poetry config virtualenvs.create true
 poetry install
+cd ..
+# 4. 运行项目
+bash startup.sh
 ```
-
-## 运行项目
-
-1. 启动后端服务：
-
-```bash
-cd src-backend
-poetry run uvicorn main:app --reload
-```
-
-2. 在另一个终端中启动前端服务：
-
-```bash
-pnpm dev
-```
-
-3. 在浏览器中访问：`http://localhost:5173`
 
 ## 项目结构
 
 ```
 wordbook/
-├── src/                    # 前端源码
-│   ├── api/               # API 请求
-│   ├── components/        # 组件
+├── src/                  # 前端源码
+│   ├── api/              # API 请求
+│   ├── components/       # 组件
 │   └── main.tsx          # 主入口
-├── src-backend/           # 后端源码
+├── src-backend/          # 后端源码
 │   ├── main.py           # 后端主程序
-│   └── schema.sql        # 数据库模式
+│   ├── README.md         # 接口文档
+│   └── schema.sql        # 数据库结构
 └── public/               # 静态资源
 ```
 
 ## 数据存储
 
-项目使用 SQLite 数据库，数据文件存储在用户目录下的 `~/.wordbook/wordbook.db`。包含以下表：
-
-- notebooks: 词书信息
-- words: 单词信息
-- word_entries: 词书-单词关联
-
-## 贡献指南
-
-1. Fork 本仓库
-2. 创建你的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交你的改动 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启一个 Pull Request
-
-## 开源协议
-
-本项目采用 MIT 协议 - 详见 [LICENSE](LICENSE) 文件
+项目使用 SQLite 数据库，数据文件存储在用户目录下的 `~/.wordbook/wordbook.db`。
