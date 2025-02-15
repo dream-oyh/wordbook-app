@@ -115,19 +115,22 @@ class WordResponse(BaseModel):
 
 
 # API 路由实现
-@app.post("/api/notebooks", response_model=NotebookResponse)
-def create_new_notebook(notebook: NotebookCreate):
+@app.post("/api/notebooks")
+def create_notebook(notebook: NotebookCreate):
+    """创建词书"""
+    print(f"Received request data: {notebook}")  # 添加调试日志
     try:
-        notebook_id = create_notebook(notebook.name)
-
-        # 获取创建的笔记本信息
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM notebooks WHERE id = ?", (notebook_id,))
-        result = dict(cursor.fetchone())
+
+        cursor.execute("INSERT INTO notebooks (name) VALUES (?)", (notebook.name,))
+
+        notebook_id = cursor.lastrowid
+
+        conn.commit()
         conn.close()
 
-        return NotebookResponse(**result)
+        return {"success": True, "notebook": {"id": notebook_id, "name": notebook.name}}
     except Exception as e:
         raise HTTPException(
             status_code=500, detail={"code": "DATABASE_ERROR", "message": str(e)}
