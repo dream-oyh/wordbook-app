@@ -30,11 +30,12 @@
 可以使用 docker 进行项目本地部署。
 
 ```sh
+mkdir ~/.wordbook    # 确保配置文件夹的映射存在
 docker run -d \
   --name wordbook \
   -p 80:80 \
   -v ~/.wordbook:/root/.wordbook \
-  ghcr.io/dream-oyh/wordbook-app:main
+  ghcr.io/dream-oyh/wordbook-app:latest
 ```
 
 ## 开发环境配置
