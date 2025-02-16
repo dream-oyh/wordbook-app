@@ -42,7 +42,7 @@ docker run -d \
   --name wordbook \
   -p 80:80 \
   -v ~/.wordbook:/root/.wordbook \
-  --restart=always
+  --restart=always \
   ghcr.io/dream-oyh/wordbook-app:latest
 
 ```
