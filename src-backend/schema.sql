@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS notebooks (                          -- 创建词本表
     id INTEGER PRIMARY KEY AUTOINCREMENT,        -- 词本ID，主键，自动递增
     name TEXT NOT NULL,                          -- 词本名称，不允许为空
+    cover TEXT DEFAULT NULL,                     -- 词本封面图片URL或路径，允许为空
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP -- 创建时间，默认为当前时间戳
 );
 

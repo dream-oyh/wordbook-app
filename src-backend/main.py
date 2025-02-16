@@ -1,8 +1,10 @@
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Optional
 
+import pandas as pd
 from db import (
     add_word_to_notebook,
     create_notebook,
@@ -10,12 +12,29 @@ from db import (
     get_notebook_words,
     search_words,
 )
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from search import search_word
+
+
+def init_directories():
+    """初始化所需的目录"""
+    # 创建 .wordbook 目录
+    db_dir = Path.home() / ".wordbook"
+    db_dir.mkdir(exist_ok=True)
+
+    # 创建 covers 目录
+    covers_dir = db_dir / "covers"
+    covers_dir.mkdir(exist_ok=True)
+
+    return db_dir, covers_dir
+
+
+# 在应用初始化时创建目录
+DB_DIR, UPLOAD_DIR = init_directories()
 
 app = FastAPI()
 dist = Path("dist")
@@ -38,6 +57,9 @@ app.mount(
     name="assets",
 )
 
+# 添加静态文件服务
+app.mount("/covers", StaticFiles(directory=str(UPLOAD_DIR)), name="covers")
+
 
 @app.get("/")
 async def read_root():
@@ -51,11 +73,7 @@ async def read_static(xxx: str):
 
 def init_database():
     """初始化数据库和表"""
-    # 确保 .wordbook 目录存在
-    db_dir = Path.home() / ".wordbook"
-    db_dir.mkdir(exist_ok=True)
-
-    db_path = db_dir / "wordbook.db"
+    db_path = DB_DIR / "wordbook.db"
 
     # 如果数据库文件不存在，创建数据库和表
     if not db_path.exists():
@@ -68,6 +86,7 @@ def init_database():
             CREATE TABLE IF NOT EXISTS notebooks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
+                cover TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -97,7 +116,7 @@ def init_database():
 
 def get_db_connection():
     """获取数据库连接"""
-    db_path = Path.home() / ".wordbook" / "wordbook.db"
+    db_path = DB_DIR / "wordbook.db"
     # 确保数据库和表已初始化
     init_database()
 
@@ -106,7 +125,7 @@ def get_db_connection():
     return conn
 
 
-# 在应用启动时初始化数据库
+# 在应用启动时初始化
 @app.on_event("startup")
 async def startup_event():
     init_database()
@@ -115,6 +134,7 @@ async def startup_event():
 # 定义请求和响应模型
 class NotebookCreate(BaseModel):
     name: str
+    cover: Optional[str] = None
 
 
 class WordCreate(BaseModel):
@@ -140,20 +160,30 @@ class WordResponse(BaseModel):
 @app.post("/api/notebooks")
 def create_notebook(notebook: NotebookCreate):
     """创建词书"""
-    print(f"Received request data: {notebook}")  # 添加调试日志
     try:
+        print(f"Creating notebook: {notebook}")  # 添加调试日志
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("INSERT INTO notebooks (name) VALUES (?)", (notebook.name,))
+        cursor.execute(
+            "INSERT INTO notebooks (name, cover) VALUES (?, ?)",
+            (notebook.name, notebook.cover),
+        )
 
         notebook_id = cursor.lastrowid
-
         conn.commit()
         conn.close()
 
-        return {"success": True, "notebook": {"id": notebook_id, "name": notebook.name}}
+        return {
+            "success": True,
+            "notebook": {
+                "id": notebook_id,
+                "name": notebook.name,
+                "cover": notebook.cover,
+            },
+        }
     except Exception as e:
+        print(f"创建词书失败: {str(e)}")  # 添加调试日志
         raise HTTPException(
             status_code=500, detail={"code": "DATABASE_ERROR", "message": str(e)}
         )
@@ -586,4 +616,158 @@ def rename_notebook(notebook_id: int, notebook_data: dict):
         raise HTTPException(
             status_code=500,
             detail={"code": "DATABASE_ERROR", "message": str(e)},
+        )
+
+
+@app.put("/api/notebooks/{notebook_id}/cover")
+async def update_notebook_cover(notebook_id: int, cover_data: dict):
+    """更新词书封面"""
+    try:
+        cover_url = cover_data.get("cover")
+        if cover_url is None:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "INVALID_PARAMS", "message": "缺少封面URL"},
+            )
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "UPDATE notebooks SET cover = ? WHERE id = ?", (cover_url, notebook_id)
+        )
+
+        conn.commit()
+        conn.close()
+
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail={"code": "DATABASE_ERROR", "message": str(e)}
+        )
+
+
+# 添加文件上传接口
+@app.post("/api/upload/cover")
+async def upload_cover(file: UploadFile = File(...)):
+    """上传词书封面"""
+    try:
+        # 验证文件类型
+        if not file.content_type.startswith("image/"):
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "INVALID_FILE_TYPE", "message": "请上传图片文件"},
+            )
+
+        # 生成文件名
+        file_extension = file.filename.split(".")[-1].lower()
+        if file_extension not in ["jpg", "jpeg", "png", "gif"]:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "INVALID_FILE_TYPE",
+                    "message": "仅支持 jpg、png、gif 格式",
+                },
+            )
+
+        new_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}.{file_extension}"
+        file_path = UPLOAD_DIR / new_filename
+
+        try:
+            # 读取文件内容
+            contents = file.file.read()
+
+            # 保存文件
+            with open(file_path, "wb") as f:
+                f.write(contents)
+
+        except Exception as e:
+            print(f"文件保存失败: {str(e)}")  # 添加调试日志
+            raise HTTPException(
+                status_code=500,
+                detail={"code": "FILE_SAVE_ERROR", "message": "文件保存失败"},
+            )
+        finally:
+            file.file.close()  # 关闭文件
+
+        # 返回文件URL
+        return {"success": True, "url": f"/covers/{new_filename}"}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"上传失败: {str(e)}")  # 添加调试日志
+        raise HTTPException(
+            status_code=500, detail={"code": "UPLOAD_ERROR", "message": str(e)}
+        )
+
+
+# 添加导出API
+@app.get("/api/notebooks/{notebook_id}/export")
+async def export_notebook(notebook_id: int):
+    """导出词书为Excel文件"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 获取词书信息
+        cursor.execute("SELECT name FROM notebooks WHERE id = ?", (notebook_id,))
+        notebook = cursor.fetchone()
+        if not notebook:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOTEBOOK_NOT_FOUND", "message": "词书不存在"},
+            )
+
+        # 获取词书中的所有单词
+        cursor.execute(
+            """
+            SELECT w.word, w.definition, w.note, we.add_time
+            FROM words w
+            JOIN word_entries we ON w.id = we.word_id
+            WHERE we.notebook_id = ?
+            ORDER BY we.add_time DESC
+        """,
+            (notebook_id,),
+        )
+
+        words = cursor.fetchall()
+        conn.close()
+
+        if not words:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "EMPTY_NOTEBOOK", "message": "词书中没有单词"},
+            )
+
+        # 创建DataFrame
+        df = pd.DataFrame(words, columns=["单词", "释义", "笔记", "添加时间"])
+
+        # 创建临时文件
+        with NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+            # 写入Excel文件
+            df.to_excel(tmp.name, index=False, sheet_name="单词列表")
+
+            # 使用时间戳作为文件名
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            safe_filename = f"wordbook_{timestamp}.xlsx"
+
+            # 返回文件，设置响应头
+            headers = {
+                "Content-Disposition": f"attachment; filename={safe_filename}",
+                "Access-Control-Expose-Headers": "Content-Disposition",
+            }
+
+            return FileResponse(
+                path=tmp.name,
+                filename=safe_filename,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers=headers,
+            )
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"导出失败: {str(e)}")  # 添加调试日志
+        raise HTTPException(
+            status_code=500, detail={"code": "EXPORT_ERROR", "message": str(e)}
         )

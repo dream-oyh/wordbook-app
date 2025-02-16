@@ -34,7 +34,8 @@
 - **请求体**:
   ```json
   {
-    "name": "新词书"
+    "name": "新词书",
+    "cover": "https://example.com/image.jpg"
   }
   ```
 - **响应**:
@@ -43,7 +44,8 @@
     "success": true,
     "notebook": {
       "id": 1,
-      "name": "新词书"
+      "name": "新词书",
+      "cover": "https://example.com/image.jpg"
     }
   }
   ```
@@ -81,6 +83,45 @@
   ```json
   {
     "success": true
+  }
+  ```
+
+#### 6. 更新词书封面
+
+- **路由**: `PUT /api/notebooks/{notebook_id}/cover`
+- **请求体**:
+  ```json
+  {
+    "cover": "https://example.com/new-image.jpg"
+  }
+  ```
+- **响应**:
+  ```json
+  {
+    "success": true
+  }
+  ```
+
+#### 7. 导出词书
+
+- **路由**: `GET /api/notebooks/{notebook_id}/export`
+- **响应**: Excel 文件
+- **错误响应**:
+  ```json
+  {
+    "detail": {
+      "code": "EMPTY_NOTEBOOK",
+      "message": "词书中没有单词"
+    }
+  }
+  ```
+  或
+  ```json
+  {
+    "detail": {
+      "code": "EXPORT_ERROR",
+      "message": "导出失败原因"
+    }
   }
   ```
 
@@ -185,6 +226,30 @@
   ```json
   {
     "translation": "翻译结果"
+  }
+  ```
+
+### 文件上传
+
+#### 1. 上传词书封面
+
+- **路由**: `POST /api/upload/cover`
+- **请求体**: multipart/form-data 格式
+  - file: 图片文件
+- **响应**:
+  ```json
+  {
+    "success": true,
+    "url": "/covers/20240315123456.jpg"
+  }
+  ```
+- **错误响应**:
+  ```json
+  {
+    "detail": {
+      "code": "UPLOAD_ERROR",
+      "message": "上传失败原因"
+    }
   }
   ```
 
