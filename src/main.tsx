@@ -688,7 +688,7 @@ const Main = () => {
             </div>
             <div class="border border-gray-300 rounded">
               <div class="grid grid-cols-3 gap-4 p-4">
-              {notebooks().map((notebook) => (
+                {notebooks().map((notebook) => (
                   <div 
                     class="flex flex-col bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
                     onClick={() => {
@@ -707,119 +707,114 @@ const Main = () => {
                           class="absolute inset-0 w-full h-full object-cover"
                         />
                       ) : (
-                        // 默认封面 - 也使用绝对定位保持一致的布局
                         <div class="absolute inset-0 flex items-center justify-center bg-gray-200">
                           <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                           </svg>
                         </div>
                       )}
-                      
-                      {/* 悬浮时的半透明遮罩和按钮 */}
-                      <div class="absolute inset-0 opacity-0 group-hover:opacity-70 transition-opacity">
-                        {/* 半透明遮罩 */}
-                        <div class="absolute inset-0 bg-black bg-opacity-30"></div>
-                        
-                        {/* 编辑和复制按钮 */}
-                        <div class="absolute inset-0 flex items-center justify-center">
-                          <div class="flex space-x-2">
-                            <button
-                              class="p-1.5 bg-white rounded-full shadow-md text-gray-600 hover:text-yellow-500 hover:bg-yellow-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!editingNotebookId()) {
-                                  setEditingNotebookId(notebook.id);
-                                  setEditingNotebookName(notebook.name);
-                                }
-                              }}
-                              title="重命名"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button
-                              class="p-1.5 bg-white rounded-full shadow-md text-gray-600 hover:text-blue-500 hover:bg-blue-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm(`确定要复制词书 "${notebook.name}" 吗？`)) {
-                                  handleCopyNotebook(notebook.id);
-                                }
-                              }}
-                              title="创建副本"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                              </svg>
-                            </button>
-                          </div>
+                    </div>
+
+                    {/* 词书信息和操作按钮部分 */}
+                    <div class="relative p-2 h-[100px]">
+                      {/* 默认显示的信息 */}
+                      <div class="group-hover:opacity-0 transition-opacity duration-200 h-full flex flex-col justify-center">
+                        <h3 class="text-center font-medium text-gray-800 truncate">
+                          {notebook.name}
+                        </h3>
+                        <p class="text-center text-xs text-gray-500 mt-1">
+                          {new Date(notebook.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+
+                      {/* 重命名输入框 - 独立于悬浮效果 */}
+                      {editingNotebookId() === notebook.id && (
+                        <div class="absolute inset-0 flex items-center justify-center bg-white p-2 z-10">
+                          <input
+                            type="text"
+                            value={editingNotebookName()}
+                            onInput={(e) => setEditingNotebookName(e.currentTarget.value)}
+                            onKeyPress={(e) => {
+                              if (e.key === "Enter") {
+                                handleRenameNotebook(notebook.id, editingNotebookName());
+                              } else if (e.key === "Escape") {
+                                setEditingNotebookId(null);
+                                setEditingNotebookName("");
+                              }
+                            }}
+                            onBlur={() => {
+                              if (editingNotebookName().trim() !== notebook.name) {
+                                handleRenameNotebook(notebook.id, editingNotebookName());
+                              }
+                              setEditingNotebookId(null);
+                              setEditingNotebookName("");
+                            }}
+                            class="w-full px-3 py-2 border border-gray-300 rounded text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            autofocus
+                            onClick={(e) => e.stopPropagation()}
+                            placeholder="输入新名称"
+                          />
+                        </div>
+                      )}
+
+                      {/* 悬浮时显示的按钮网格 */}
+                      <div class="opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-1 group-hover:translate-y-0 absolute inset-0 p-2">
+                        <div class="grid grid-cols-2 gap-2 h-full">
+                          <button
+                            class="flex items-center justify-center p-1.5 bg-gray-100 rounded text-gray-600 hover:text-yellow-500 hover:bg-yellow-50 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingNotebookId(notebook.id);
+                              setEditingNotebookName(notebook.name);
+                            }}
+                            title="重命名"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            class="flex items-center justify-center p-1.5 bg-gray-100 rounded text-gray-600 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`确定要复制词书 "${notebook.name}" 吗？`)) {
+                                handleCopyNotebook(notebook.id);
+                              }
+                            }}
+                            title="创建副本"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                            </svg>
+                          </button>
+                          <button
+                            class="flex items-center justify-center p-1.5 bg-gray-100 rounded text-gray-600 hover:text-green-500 hover:bg-green-50 transition-colors"
+                            onClick={(e) => handleExportNotebook(notebook.id, e)}
+                            title="导出Excel"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </button>
+                          <button
+                            class="flex items-center justify-center p-1.5 bg-gray-100 rounded text-gray-600 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`确定要删除词书 "${notebook.name}" 吗？这将删除词书中的所有单词。`)) {
+                                handleDeleteNotebook(notebook.id);
+                              }
+                            }}
+                            title="删除词书"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
                         </div>
                       </div>
                     </div>
-
-                    {/* 词书信息部分 */}
-                    <div class="p-2">
-                      {/* 词书名称 */}
-                      <div class="mb-1">
-                  {editingNotebookId() === notebook.id ? (
-                    <input
-                      type="text"
-                      value={editingNotebookName()}
-                      onInput={(e) => setEditingNotebookName(e.currentTarget.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter") {
-                          handleRenameNotebook(notebook.id, editingNotebookName());
-                        } else if (e.key === "Escape") {
-                          setEditingNotebookId(null);
-                          setEditingNotebookName("");
-                        }
-                      }}
-                      onBlur={() => {
-                              handleRenameNotebook(notebook.id, editingNotebookName());
-                      }}
-                            class="w-full px-2 py-1 border border-gray-300 rounded text-gray-900"
-                      autofocus
-                            onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : (
-                          <h3 class="text-center font-medium text-gray-800 truncate">
-                      {notebook.name}
-                          </h3>
-                        )}
-                        <p class="text-center text-xs text-gray-500 mt-0.5">
-                          {new Date(notebook.created_at).toLocaleDateString()}
-                        </p>
-                    </div>
-
-                      {/* 删除和导出按钮 */}
-                      <div class="flex justify-center space-x-2 mt-1 opacity-0 group-hover:opacity-70 transition-opacity">
-                    <button
-                          class="p-1 bg-gray-100 rounded text-gray-600 hover:text-red-500 hover:bg-red-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm(`确定要删除词书 "${notebook.name}" 吗？这将删除词书中的所有单词。`)) {
-                          handleDeleteNotebook(notebook.id);
-                        }
-                      }}
-                      title="删除词书"
-                    >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                        <button
-                          class="p-1 bg-gray-100 rounded text-gray-600 hover:text-green-500 hover:bg-green-50"
-                          onClick={(e) => handleExportNotebook(notebook.id, e)}
-                          title="导出Excel"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                    </button>
-                      </div>
                   </div>
-                </div>
-              ))}
+                ))}
               </div>
             </div>
           </div>
