@@ -36,6 +36,15 @@ docker run -d \
   -p 80:80 \
   -v ~/.wordbook:/root/.wordbook \
   ghcr.io/dream-oyh/wordbook-app:latest
+
+# 如果要开机自启，请运行下方命令，并且配置docker desktop开机自启
+docker run -d \
+  --name wordbook \
+  -p 80:80 \
+  -v ~/.wordbook:/root/.wordbook \
+  --restart=always
+  ghcr.io/dream-oyh/wordbook-app:latest
+
 ```
 
 ## 开发环境配置
