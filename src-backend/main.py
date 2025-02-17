@@ -5,6 +5,7 @@ from tempfile import NamedTemporaryFile
 from typing import Optional
 
 import pandas as pd
+import pytz  # 添加这个导入
 from db import (
     add_word_to_notebook,
     create_notebook,
@@ -156,6 +157,16 @@ class WordResponse(BaseModel):
     add_time: datetime
 
 
+# 修改获取北京时间的辅助函数
+def get_beijing_time():
+    """获取北京时间"""
+    beijing_tz = pytz.timezone("Asia/Shanghai")
+    # 先获取本地时间，然后转换为带时区的时间
+    local_time = datetime.now()
+    local_time_with_tz = beijing_tz.localize(local_time)
+    return local_time_with_tz.strftime("%Y-%m-%d %H:%M:%S")
+
+
 # API 路由实现
 @app.post("/api/notebooks")
 def create_notebook(notebook: NotebookCreate):
@@ -231,12 +242,12 @@ def add_word_to_notebook(notebook_id: int, word_data: dict):
             )
 
         notebook_name = notebook["name"]
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        current_time = get_beijing_time()  # 使用北京时间
 
         # 添加时间戳到笔记
         note_with_timestamp = note.strip()
         if note_with_timestamp:
-            note_with_timestamp += "\n"  # 只有在笔记不为空时才添加换行
+            note_with_timestamp += "\n"
         note_with_timestamp += f"Added in {notebook_name} at {current_time}\n"
 
         # 检查单词是否已存在于 words 表
@@ -307,10 +318,26 @@ def get_words(
         (notebook_id,),
     )
     total = cursor.fetchone()["total"]
-    conn.close()
 
-    # 获取单词列表
-    words = get_notebook_words(notebook_id, limit, offset)
+    # 修改查询，将时间转换为北京时间
+    cursor.execute(
+        """
+        SELECT 
+            w.word,
+            w.definition,
+            w.note,
+            datetime(we.add_time, '+8 hours') as add_time
+        FROM words w
+        JOIN word_entries we ON w.id = we.word_id
+        WHERE we.notebook_id = ?
+        ORDER BY we.add_time DESC
+        LIMIT ? OFFSET ?
+    """,
+        (notebook_id, limit or -1, offset or 0),
+    )
+
+    words = [dict(row) for row in cursor.fetchall()]
+    conn.close()
 
     return {"words": words, "total": total}
 
