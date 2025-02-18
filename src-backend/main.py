@@ -318,26 +318,10 @@ def get_words(
         (notebook_id,),
     )
     total = cursor.fetchone()["total"]
-
-    # 修改查询，将时间转换为北京时间
-    cursor.execute(
-        """
-        SELECT 
-            w.word,
-            w.definition,
-            w.note,
-            datetime(we.add_time, '+8 hours') as add_time
-        FROM words w
-        JOIN word_entries we ON w.id = we.word_id
-        WHERE we.notebook_id = ?
-        ORDER BY we.add_time DESC
-        LIMIT ? OFFSET ?
-    """,
-        (notebook_id, limit or -1, offset or 0),
-    )
-
-    words = [dict(row) for row in cursor.fetchall()]
     conn.close()
+
+    # 获取单词列表
+    words = get_notebook_words(notebook_id, limit, offset)
 
     return {"words": words, "total": total}
 

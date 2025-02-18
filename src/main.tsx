@@ -17,7 +17,7 @@ const NotebookSelector: Component<{
   onSelect: (id: number) => void;
 }> = (props) => {
   return (
-    <div class="relative notebook-select w-[600px]">
+    <div class="relative notebook-select w-[500px]">
       <button
         class="w-full text-xl font-semibold bg-transparent text-white appearance-none cursor-pointer focus:outline-none flex items-center justify-center"
         onClick={(e) => {
@@ -85,7 +85,7 @@ const TranslatorSelector: Component<{
       >
         {props.current}
       </button>
-      <div class={`absolute left-0 bg-white shadow-lg z-10 min-w-[120px] ${props.show ? "" : "hidden"}`}>
+      <div class={`absolute left-0 bg-gray-900 shadow-lg z-10 min-w-[120px] ${props.show ? "" : "hidden"}`}>
         <div class="flex flex-col">
           {["有道翻译", "必应词典"].map((translator) => (
             <div
@@ -562,11 +562,11 @@ const Main = () => {
             <span class="text-3xl font-bold text-white">WORDBOOK</span>
           </div>
 
-          <div class="w-[600px]">
+          <div class="w-[500px]">
             <NotebookSelector notebooks={notebooks()} currentId={currentNotebookId()} onSelect={(id) => setCurrentNotebookId(id)} />
           </div>
 
-          <div class="mt-8 w-[600px]">
+          <div class="mt-8 w-[500px]">
             <div class="flex items-center space-x-2 mb-4">
               <TranslatorSelector
                 current={currentTranslator()}
@@ -586,8 +586,8 @@ const Main = () => {
                 ref={searchInputRef}
               />
               <div class="relative">
-                <button class="bg-gray-200 hover:bg-gray-300 rounded-full p-2" onClick={handleSearch}>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <button class="bg-gray-800 hover:bg-gray-700 rounded-full p-2" onClick={handleSearch}>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </button>
@@ -601,16 +601,16 @@ const Main = () => {
             </div>
           </div>
 
-          <div class="mt-8 w-[600px]">
+          <div class="mt-8 w-[500px]">
             <div class="flex space-x-4 mb-4 relative">
               <button
-                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded create-notebook-btn"
+                class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded create-notebook-btn"
                 onClick={() => setShowNotebookInput(true)}
               >
                 新建词书
               </button>
               {showNotebookInput() && (
-                <div class="absolute top-12 left-0 z-10 bg-white shadow-lg rounded-lg p-4 w-[400px] animate-fade-in notebook-input-container">
+                <div class="absolute top-12 left-0 z-10 bg-gray-900 shadow-lg rounded-lg p-4 w-[500px] animate-fade-in notebook-input-container">
                   <div class="flex flex-col space-y-4">
                     <input
                       type="text"
@@ -678,7 +678,7 @@ const Main = () => {
                 </div>
               )}
               <button
-                class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded flex items-center space-x-2"
+                class="bg-purple-500 hover:bg-purple-700text-white font-bold py-2 px-4 rounded flex items-center space-x-2"
                 onClick={handleAddToNotebook}
                 title="快捷键：Ctrl + Enter"
               >
@@ -761,7 +761,7 @@ const Main = () => {
                       <div class="opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-1 group-hover:translate-y-0 absolute inset-0 p-2">
                         <div class="grid grid-cols-2 gap-2 h-full">
                           <button
-                            class="flex items-center justify-center p-1.5 bg-gray-100 rounded text-gray-600 hover:text-yellow-500 hover:bg-yellow-50 transition-colors"
+                            class="flex items-center justify-center p-1.5 bg-gray-800 rounded text-white hover:text-yellow-500 hover:bg-yellow-50 transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
                               setEditingNotebookId(notebook.id);
@@ -774,7 +774,7 @@ const Main = () => {
                             </svg>
                           </button>
                           <button
-                            class="flex items-center justify-center p-1.5 bg-gray-100 rounded text-gray-600 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                            class="flex items-center justify-center p-1.5 bg-gray-800 rounded text-white hover:text-blue-500 hover:bg-blue-50 transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
                               if (confirm(`确定要复制词书 "${notebook.name}" 吗？`)) {
@@ -788,7 +788,7 @@ const Main = () => {
                             </svg>
                           </button>
                           <button
-                            class="flex items-center justify-center p-1.5 bg-gray-100 rounded text-gray-600 hover:text-green-500 hover:bg-green-50 transition-colors"
+                            class="flex items-center justify-center p-1.5 bg-gray-800 rounded text-white hover:text-green-500 hover:bg-green-50 transition-colors"
                             onClick={(e) => handleExportNotebook(notebook.id, e)}
                             title="导出Excel"
                           >
@@ -797,7 +797,7 @@ const Main = () => {
                             </svg>
                           </button>
                           <button
-                            class="flex items-center justify-center p-1.5 bg-gray-100 rounded text-gray-600 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            class="flex items-center justify-center p-1.5 bg-gray-800 rounded text-white hover:text-red-500 hover:bg-red-50 transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
                               if (confirm(`确定要删除词书 "${notebook.name}" 吗？这将删除词书中的所有单词。`)) {

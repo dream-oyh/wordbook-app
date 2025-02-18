@@ -147,12 +147,12 @@ const NotebookDetail: Component<{
         <div class="flex space-x-4">
           {isSelectionMode() ? (
             <>
-              <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded" onClick={handleBatchDelete}>
+              <button class="  bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded" onClick={handleBatchDelete}>
                 删除选中
               </button>
               <div class="relative">
                 <button
-                  class="notebook-select-button bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                  class="notebook-select-button   bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowNotebookSelect(showNotebookSelect() === "move" ? false : "move");
@@ -161,11 +161,11 @@ const NotebookDetail: Component<{
                   移动到
                 </button>
                 {showNotebookSelect() === "move" && (
-                  <div class="notebook-select-dropdown absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-10">
+                  <div class="notebook-select-dropdown absolute left-0 mt-2 w-48 bg-gray-900 rounded-lg shadow-xl z-10">
                     <div class="py-2">
-                      <div class="px-4 py-2 text-sm font-medium text-gray-700 text-black">选择目标词书：</div>
+                      <div class="px-4 py-2 text-sm font-medium text-gray-200">选择目标词书：</div>
                       {notebooks().map((notebook) => (
-                        <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-black" onClick={() => handleBatchMove(notebook.id)}>
+                        <div class="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white" onClick={() => handleBatchMove(notebook.id)}>
                           {notebook.name}
                         </div>
                       ))}
@@ -175,7 +175,7 @@ const NotebookDetail: Component<{
               </div>
               <div class="relative">
                 <button
-                  class="notebook-select-button bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+                  class="notebook-select-button  hover:bg-amber-300 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowNotebookSelect(showNotebookSelect() === "copy" ? false : "copy");
@@ -184,11 +184,11 @@ const NotebookDetail: Component<{
                   复制到
                 </button>
                 {showNotebookSelect() === "copy" && (
-                  <div class="notebook-select-dropdown absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-10">
+                  <div class="notebook-select-dropdown absolute left-0 mt-2 w-48 bg-gray-900 rounded-lg shadow-xl z-10">
                     <div class="py-2">
-                      <div class="px-4 py-2 text-sm font-medium text-gray-700 text-black">选择目标词书：</div>
+                      <div class="px-4 py-2 text-sm font-medium text-gray-200">选择目标词书：</div>
                       {notebooks().map((notebook) => (
-                        <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-black" onClick={() => handleBatchCopy(notebook.id)}>
+                        <div class="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white" onClick={() => handleBatchCopy(notebook.id)}>
                           {notebook.name}
                         </div>
                       ))}
@@ -197,7 +197,7 @@ const NotebookDetail: Component<{
                 )}
               </div>
               <button
-                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+                class="  bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
                 onClick={() => {
                   setIsSelectionMode(false);
                   setSelectedWords(new Set<string>());
@@ -209,10 +209,10 @@ const NotebookDetail: Component<{
             </>
           ) : (
             <>
-              <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={() => setIsSelectionMode(true)}>
+              <button class="  bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={() => setIsSelectionMode(true)}>
                 批量操作
               </button>
-              <button class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded" onClick={props.onBack}>
+              <button class=" bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded" onClick={props.onBack}>
                 返回
               </button>
             </>
@@ -223,9 +223,9 @@ const NotebookDetail: Component<{
       {loading() ? (
         <div class="text-center text-white">加载中...</div>
       ) : (
-        <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="bg-gray-100 rounded-lg shadow overflow-hidden">
           <table class="min-w-full">
-            <thead class="bg-gray-50">
+            <thead class="bg-gray-200">
               <tr>
                 {isSelectionMode() && <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">选择</th>}
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单词</th>
