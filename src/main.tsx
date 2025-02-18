@@ -85,7 +85,7 @@ const TranslatorSelector: Component<{
       >
         {props.current}
       </button>
-      <div class={`absolute left-0 bg-gray-900 shadow-lg z-10 min-w-[120px] ${props.show ? "" : "hidden"}`}>
+      <div class={`absolute left-0 bg-white shadow-lg z-10 min-w-[120px] ${props.show ? "" : "hidden"}`}>
         <div class="flex flex-col">
           {["有道翻译", "必应词典"].map((translator) => (
             <div
@@ -610,7 +610,7 @@ const Main = () => {
                 新建词书
               </button>
               {showNotebookInput() && (
-                <div class="absolute top-12 left-0 z-10 bg-gray-900 shadow-lg rounded-lg p-4 w-[500px] animate-fade-in notebook-input-container">
+                <div class="absolute top-12 left-0 z-10 bg-white shadow-lg rounded-lg p-4 w-[400px] animate-fade-in notebook-input-container">
                   <div class="flex flex-col space-y-4">
                     <input
                       type="text"
@@ -618,7 +618,7 @@ const Main = () => {
                       onInput={(e) => setNewNotebookName(e.currentTarget.value)}
                       onKeyPress={handleWordKeyPress}
                       placeholder="输入词书名称"
-                      class="border border-gray-300 rounded py-2 px-4 text-gray-900"
+                      class="border border-gray-300 rounded py-2 px-4 text-gray-950"
                       autofocus
                     />
                     
@@ -678,7 +678,7 @@ const Main = () => {
                 </div>
               )}
               <button
-                class="bg-purple-500 hover:bg-purple-700text-white font-bold py-2 px-4 rounded flex items-center space-x-2"
+                class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded flex items-center space-x-2"
                 onClick={handleAddToNotebook}
                 title="快捷键：Ctrl + Enter"
               >
