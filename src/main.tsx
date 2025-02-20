@@ -17,7 +17,7 @@ const NotebookSelector: Component<{
   onSelect: (id: number) => void;
 }> = (props) => {
   return (
-    <div class="relative notebook-select w-[600px]">
+    <div class="relative notebook-select w-[500px]">
       <button
         class="w-full text-xl font-semibold bg-transparent text-white appearance-none cursor-pointer focus:outline-none flex items-center justify-center"
         onClick={(e) => {
@@ -562,11 +562,11 @@ const Main = () => {
             <span class="text-3xl font-bold text-white">WORDBOOK</span>
           </div>
 
-          <div class="w-[600px]">
+          <div class="w-[500px]">
             <NotebookSelector notebooks={notebooks()} currentId={currentNotebookId()} onSelect={(id) => setCurrentNotebookId(id)} />
           </div>
 
-          <div class="mt-8 w-[600px]">
+          <div class="mt-8 w-[500px]">
             <div class="flex items-center space-x-2 mb-4">
               <TranslatorSelector
                 current={currentTranslator()}
@@ -601,7 +601,7 @@ const Main = () => {
             </div>
           </div>
 
-          <div class="mt-8 w-[600px]">
+          <div class="mt-8 w-[500px]">
             <div class="flex space-x-4 mb-4 relative">
               <button
                 class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded create-notebook-btn"
@@ -610,7 +610,7 @@ const Main = () => {
                 新建词书
               </button>
               {showNotebookInput() && (
-                <div class="absolute top-12 left-0 z-10 bg-white shadow-lg rounded-lg p-4 w-[400px] animate-fade-in notebook-input-container">
+                <div class="absolute top-12 left-0 z-10 bg-white shadow-lg rounded-lg p-4 w-[500px] animate-fade-in notebook-input-container">
                   <div class="flex flex-col space-y-4">
                     <input
                       type="text"
