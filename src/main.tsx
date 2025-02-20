@@ -655,6 +655,30 @@ const Main = () => {
     );
   };
 
+  // 在 Main 组件中添加文件上传处理函数
+  const handleFileUpload = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      
+      // 验证文件类型
+      if (!file.type.startsWith('image/')) {
+        alert('请选择图片文件');
+        return;
+      }
+      
+      // 验证文件大小（例如限制为 2MB）
+      const maxSize = 2 * 1024 * 1024; // 2MB
+      if (file.size > maxSize) {
+        alert('图片大小不能超过 2MB');
+        return;
+      }
+      
+      // 设置封面
+      setNewNotebookCover(file);
+    }
+  };
+
   return (
     <div class="container mx-auto p-4 flex-1">
       {currentRoute() === "main" ? (
@@ -723,6 +747,77 @@ const Main = () => {
                 <span>添加单词进词书</span>
                 <span class="text-xs opacity-75">(Ctrl + ↵)</span>
               </button>
+
+              {showNotebookInput() && (
+                <div class="absolute top-full left-0 mt-1 z-10 bg-white shadow-lg rounded-lg p-4 w-[500px] animate-fade-in notebook-input-container">
+                  <div class="flex flex-col space-y-4">
+                    <h2 class="text-xl font-bold text-gray-900">新建词书</h2>
+                    
+                    <input
+                      type="text"
+                      value={newNotebookName()}
+                      onInput={(e) => setNewNotebookName(e.currentTarget.value)}
+                      onKeyPress={handleWordKeyPress}
+                      placeholder="输入词书名称"
+                      class="border border-gray-300 rounded py-2 px-4 text-gray-900"
+                      autofocus
+                    />
+                    
+                    <div class="flex flex-col space-y-2">
+                      <div class="flex items-center space-x-2">
+                        <label class="flex-1 cursor-pointer">
+                          <div class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded text-center">
+                            {newNotebookCover() ? '更换封面' : '选择封面'}
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            class="hidden"
+                            onChange={handleFileUpload}
+                          />
+                        </label>
+                      </div>
+                      {newNotebookCover() && (
+                        <div class="relative w-full pt-[56.25%] bg-gray-100 rounded overflow-hidden">
+                          <img
+                            src={URL.createObjectURL(newNotebookCover()!)}
+                            alt="封面预览"
+                            class="absolute inset-0 w-full h-full object-cover"
+                          />
+                          <button
+                            class="absolute top-2 right-2 bg-red-500 hover:bg-red-700 text-white rounded-full p-1"
+                            onClick={() => setNewNotebookCover(null)}
+                            title="移除封面"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div class="flex space-x-3">
+                      <button 
+                        class="flex-1 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+                        onClick={handleCreateNotebook}
+                      >
+                        创建
+                      </button>
+                      <button
+                        class="flex-1 bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+                        onClick={() => {
+                          setShowNotebookInput(false);
+                          setNewNotebookName("");
+                          setNewNotebookCover(null);
+                        }}
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <div class="border border-gray-300 rounded">
               <div class="grid grid-cols-3 gap-4 p-4">
