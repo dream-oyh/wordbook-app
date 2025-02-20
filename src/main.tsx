@@ -179,7 +179,7 @@ const Main = () => {
   // 在 Main 组件中添加状态
   const [newNotebookCover, setNewNotebookCover] = createSignal<File | null>(null);
 
-  const fetchNotebooks = async () => {
+  const fetchNotebooks = async (retryCount = 0, maxRetries = 3) => {
     try {
       const response = await axios.get("/api/notebooks");
       setNotebooks(response.data.notebooks);
@@ -188,6 +188,13 @@ const Main = () => {
       }
     } catch (error) {
       console.error("获取词书列表失败：", error);
+      // 如果还没达到最大重试次数，等待后重试
+      if (retryCount < maxRetries) {
+        console.log(`将在 2 秒后进行第 ${retryCount + 1} 次重试...`);
+        setTimeout(() => {
+          fetchNotebooks(retryCount + 1, maxRetries);
+        }, 2000);
+      }
     }
   };
 
@@ -246,10 +253,21 @@ const Main = () => {
 
   // 在 onMount 中添加全局事件监听
   onMount(() => {
+    // 立即获取一次词书列表
     fetchNotebooks();
+
+    // 设置定期刷新
+    const refreshInterval = setInterval(() => {
+      fetchNotebooks();
+    }, 30000); // 每30秒刷新一次
+
+    // 添加其他事件监听
     document.addEventListener("click", handleClickOutside);
     document.addEventListener("keydown", handleGlobalKeyPress);
+
+    // 清理函数
     return () => {
+      clearInterval(refreshInterval);
       document.removeEventListener("click", handleClickOutside);
       document.removeEventListener("keydown", handleGlobalKeyPress);
     };
@@ -474,29 +492,65 @@ const Main = () => {
     }
   };
 
-  // 修改文件上传处理函数
-  const handleFileUpload = (e: Event) => {
-    const input = e.target as HTMLInputElement;
-    if (!input.files?.length) return;
+  // 修改导入导出函数
+  const handleImportDatabase = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
 
-    const file = input.files[0];
-    
-    // 验证文件类型
-    if (!file.type.startsWith('image/')) {
-      alert('请选择图片文件');
-      return;
+      const response = await axios.post('/api/import', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.success) {
+        alert('导入成功！页面将刷新以加载新数据。');
+        window.location.reload();
+      }
+    } catch (error: any) {
+      console.error('导入失败：', error);
+      alert(error.response?.data?.detail?.message || '导入失败，请重试');
     }
-
-    // 验证文件大小（例如限制为 2MB）
-    if (file.size > 2 * 1024 * 1024) {
-      alert('图片大小不能超过 2MB');
-      return;
-    }
-
-    setNewNotebookCover(file);
   };
 
-  // 添加导出函数
+  const handleExportDatabase = async () => {
+    try {
+      const response = await axios.get('/api/export-db', {
+        responseType: 'blob'
+      });
+
+      // 从响应头中获取文件名
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = 'wordbook_backup.zip';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+?)"/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // 创建下载链接
+      const blob = new Blob([response.data], { type: 'application/zip' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      
+      // 触发下载
+      document.body.appendChild(link);
+      link.click();
+      
+      // 清理
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error("导出失败：", error);
+      alert(error.response?.data?.detail?.message || '导出失败，请重试');
+    }
+  };
+
+  // 添加导出单个词书为 Excel 的函数
   const handleExportNotebook = async (notebookId: number, e: MouseEvent) => {
     e.stopPropagation();  // 阻止事件冒泡
     try {
@@ -551,15 +605,67 @@ const Main = () => {
     }
   };
 
+  // 2. 定义设置菜单组件，使用上面定义的函数
+  const SettingsMenu = () => {
+    const [isOpen, setIsOpen] = createSignal(false);
+
+    return (
+      <div class="relative">
+        <button
+          class="bg-gray-700 hover:bg-gray-600 text-white rounded-full p-2"
+          onClick={() => setIsOpen(!isOpen())}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+        </button>
+        {isOpen() && (
+          <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50">
+            <div class="py-1">
+              <label class="block px-4 py-2 text-gray-700 hover:bg-gray-100 cursor-pointer">
+                导入词书
+                <input
+                  type="file"
+                  accept=".zip"
+                  class="hidden"
+                  onChange={(e) => {
+                    const file = e.currentTarget.files?.[0];
+                    if (file) {
+                      if (confirm('导入新的数据将覆盖现有数据，建议先导出备份。是否继续？')) {
+                        handleImportDatabase(file);
+                      }
+                    }
+                    setIsOpen(false);
+                  }}
+                />
+              </label>
+              <label 
+                class="block px-4 py-2 text-gray-700 hover:bg-gray-100 cursor-pointer"
+                onClick={() => {
+                  handleExportDatabase();
+                  setIsOpen(false);
+                }}
+              >
+                导出词书
+              </label>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div class="container mx-auto p-4 flex-1">
       {currentRoute() === "main" ? (
         <div class="flex flex-col items-center">
-          {/* Logo 和标题容器 */}
-          <div class="flex flex-row items-center justify-center w-full mb-8 space-x-4 gap-4">
-            <img src="/logo.png" alt="wordbook logo" style={{ height: "2rem", width: "2rem" }} />
-            <span></span>
-            <span class="text-3xl font-bold text-white">WORDBOOK</span>
+          {/* Logo、标题和设置按钮容器 */}
+          <div class="flex flex-row items-center justify-between w-full max-w-[500px] mb-8">
+            <div class="flex items-center space-x-4">
+              <img src="/logo.png" alt="wordbook logo" style={{ height: "2rem", width: "2rem" }} />
+              <span class="text-3xl font-bold text-white">WORDBOOK</span>
+            </div>
+            <SettingsMenu />
           </div>
 
           <div class="w-[500px]">
@@ -609,74 +715,6 @@ const Main = () => {
               >
                 新建词书
               </button>
-              {showNotebookInput() && (
-                <div class="absolute top-12 left-0 z-10 bg-white shadow-lg rounded-lg p-4 w-[500px] animate-fade-in notebook-input-container">
-                  <div class="flex flex-col space-y-4">
-                    <input
-                      type="text"
-                      value={newNotebookName()}
-                      onInput={(e) => setNewNotebookName(e.currentTarget.value)}
-                      onKeyPress={handleWordKeyPress}
-                      placeholder="输入词书名称"
-                      class="border border-gray-300 rounded py-2 px-4 text-gray-900"
-                      autofocus
-                    />
-                    
-                    <div class="flex flex-col space-y-2">
-                      <div class="flex items-center space-x-2">
-                        <label class="flex-1 cursor-pointer">
-                          <div class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded text-center">
-                            {newNotebookCover() ? '更换封面' : '选择封面'}
-                          </div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            class="hidden"
-                            onChange={handleFileUpload}
-                          />
-                        </label>
-                      </div>
-                      {newNotebookCover() && (
-                        <div class="relative w-full pt-[56.25%] bg-gray-100 rounded overflow-hidden">
-                          <img
-                            src={URL.createObjectURL(newNotebookCover()!)}
-                            alt="封面预览"
-                            class="absolute inset-0 w-full h-full object-cover"
-                          />
-                          <button
-                            class="absolute top-1 right-1 bg-red-500 hover:bg-red-700 text-white rounded-full p-1"
-                            onClick={() => setNewNotebookCover(null)}
-                            title="移除封面"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div class="flex space-x-2">
-                      <button 
-                        class="flex-1 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-                        onClick={handleCreateNotebook}
-                      >
-                        创建
-                    </button>
-                    <button
-                        class="flex-1 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-                      onClick={() => {
-                        setShowNotebookInput(false);
-                        setNewNotebookName("");
-                          setNewNotebookCover(null);
-                      }}
-                    >
-                        取消
-                    </button>
-                    </div>
-                  </div>
-                </div>
-              )}
               <button
                 class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded flex items-center space-x-2"
                 onClick={handleAddToNotebook}

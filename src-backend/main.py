@@ -1,16 +1,16 @@
+import shutil
 import sqlite3
+import tempfile
+import zipfile
 from datetime import datetime
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import Optional
 
-import pandas as pd
 import pytz  # 添加这个导入
 from db import (
     add_word_to_notebook,
     create_notebook,
     get_db_connection,
-    get_notebook_words,
     search_words,
 )
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from search import search_word
+from starlette.background import BackgroundTask  # 修改这里的导入
 
 
 def init_directories():
@@ -728,73 +729,146 @@ async def upload_cover(file: UploadFile = File(...)):
         )
 
 
-# 添加导出API
-@app.get("/api/notebooks/{notebook_id}/export")
-async def export_notebook(notebook_id: int):
-    """导出词书为Excel文件"""
+# 修改导出功能，导出整个 .wordbook 目录的压缩包
+@app.get("/api/export-db")
+async def export_database():
+    """导出整个 .wordbook 目录为 zip 文件"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # 创建临时目录用于存放 zip 文件
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_zip:
+            # 创建 zip 文件
+            with zipfile.ZipFile(temp_zip.name, "w", zipfile.ZIP_DEFLATED) as zf:
+                # 添加数据库文件
+                db_path = DB_DIR / "wordbook.db"
+                if db_path.exists():
+                    zf.write(db_path, "wordbook.db")
 
-        # 获取词书信息
-        cursor.execute("SELECT name FROM notebooks WHERE id = ?", (notebook_id,))
-        notebook = cursor.fetchone()
-        if not notebook:
-            raise HTTPException(
-                status_code=404,
-                detail={"code": "NOTEBOOK_NOT_FOUND", "message": "词书不存在"},
-            )
+                # 添加封面目录
+                covers_dir = DB_DIR / "covers"
+                if covers_dir.exists():
+                    for cover_file in covers_dir.glob("*"):
+                        if cover_file.is_file():
+                            zf.write(cover_file, f"covers/{cover_file.name}")
 
-        # 获取词书中的所有单词
-        cursor.execute(
-            """
-            SELECT w.word, w.definition, w.note, we.add_time
-            FROM words w
-            JOIN word_entries we ON w.id = we.word_id
-            WHERE we.notebook_id = ?
-            ORDER BY we.add_time DESC
-        """,
-            (notebook_id,),
-        )
-
-        words = cursor.fetchall()
-        conn.close()
-
-        if not words:
-            raise HTTPException(
-                status_code=400,
-                detail={"code": "EMPTY_NOTEBOOK", "message": "词书中没有单词"},
-            )
-
-        # 创建DataFrame
-        df = pd.DataFrame(words, columns=["单词", "释义", "笔记", "添加时间"])
-
-        # 创建临时文件
-        with NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-            # 写入Excel文件
-            df.to_excel(tmp.name, index=False, sheet_name="单词列表")
-
-            # 使用时间戳作为文件名
+            # 生成导出文件名
             timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            safe_filename = f"wordbook_{timestamp}.xlsx"
+            filename = f"wordbook_backup_{timestamp}.zip"
 
-            # 返回文件，设置响应头
+            # 设置响应头
             headers = {
-                "Content-Disposition": f"attachment; filename={safe_filename}",
+                "Content-Disposition": f"attachment; filename={filename}",
                 "Access-Control-Expose-Headers": "Content-Disposition",
             }
 
             return FileResponse(
-                path=tmp.name,
-                filename=safe_filename,
-                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                path=temp_zip.name,
+                filename=filename,
+                media_type="application/zip",
                 headers=headers,
+                background=BackgroundTask(
+                    lambda: Path(temp_zip.name).unlink(missing_ok=True)
+                ),
             )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "EXPORT_ERROR", "message": f"导出失败: {str(e)}"},
+        )
+
+
+# 修改导入功能，支持导入 zip 文件
+@app.post("/api/import")
+async def import_database(file: UploadFile = File(...)):
+    """导入 wordbook 备份 zip 文件"""
+    try:
+        # 验证文件类型
+        if not file.filename.endswith(".zip"):
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "INVALID_FILE_TYPE", "message": "请上传 .zip 文件"},
+            )
+
+        # 创建临时目录
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+
+            # 保存上传的 zip 文件
+            zip_path = temp_dir_path / "backup.zip"
+            with zip_path.open("wb") as f:
+                content = await file.read()
+                f.write(content)
+
+            # 解压文件
+            try:
+                with zipfile.ZipFile(zip_path, "r") as zf:
+                    # 验证必要文件
+                    if "wordbook.db" not in zf.namelist():
+                        raise HTTPException(
+                            status_code=400,
+                            detail={
+                                "code": "INVALID_BACKUP",
+                                "message": "无效的备份文件：缺少数据库文件",
+                            },
+                        )
+
+                    # 解压所有文件
+                    zf.extractall(temp_dir_path)
+
+                    # 验证数据库
+                    db_path = temp_dir_path / "wordbook.db"
+                    conn = sqlite3.connect(str(db_path))
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """
+                        SELECT name FROM sqlite_master 
+                        WHERE type='table' 
+                        AND name IN ('notebooks', 'words', 'word_entries')
+                    """
+                    )
+                    tables = cursor.fetchall()
+                    conn.close()
+
+                    if len(tables) != 3:
+                        raise HTTPException(
+                            status_code=400,
+                            detail={
+                                "code": "INVALID_DATABASE",
+                                "message": "无效的数据库文件",
+                            },
+                        )
+
+                    # 备份当前数据
+                    if DB_DIR.exists():
+                        backup_dir = (
+                            DB_DIR.parent
+                            / f"wordbook_backup_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                        )
+                        shutil.copytree(DB_DIR, backup_dir)
+
+                    # 替换数据库和封面文件
+                    shutil.copy2(db_path, DB_DIR / "wordbook.db")
+
+                    # 更新封面目录
+                    covers_dir = temp_dir_path / "covers"
+                    if covers_dir.exists():
+                        target_covers_dir = DB_DIR / "covers"
+                        if target_covers_dir.exists():
+                            shutil.rmtree(target_covers_dir)
+                        shutil.copytree(covers_dir, target_covers_dir)
+
+                    return {"success": True, "message": "数据库导入成功"}
+
+            except zipfile.BadZipFile:
+                raise HTTPException(
+                    status_code=400,
+                    detail={"code": "INVALID_ZIP", "message": "无效的 zip 文件"},
+                )
 
     except HTTPException as he:
         raise he
     except Exception as e:
-        print(f"导出失败: {str(e)}")  # 添加调试日志
         raise HTTPException(
-            status_code=500, detail={"code": "EXPORT_ERROR", "message": str(e)}
+            status_code=500,
+            detail={"code": "IMPORT_ERROR", "message": f"导入失败: {str(e)}"},
         )
