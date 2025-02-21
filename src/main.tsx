@@ -183,7 +183,8 @@ const Main = () => {
     try {
       const response = await axios.get("/api/notebooks");
       setNotebooks(response.data.notebooks);
-      if (response.data.notebooks.length > 0) {
+      // 只在第一次加载时设置默认词书
+      if (response.data.notebooks.length > 0 && currentNotebookId() === null) {
         setCurrentNotebookId(response.data.notebooks[0].id);
       }
     } catch (error) {
