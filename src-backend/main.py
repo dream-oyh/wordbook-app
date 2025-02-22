@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import pandas as pd
 import pytz  # 添加这个导入
 from db import (
     add_word_to_notebook,
@@ -871,4 +872,73 @@ async def import_database(file: UploadFile = File(...)):
         raise HTTPException(
             status_code=500,
             detail={"code": "IMPORT_ERROR", "message": f"导入失败: {str(e)}"},
+        )
+
+
+@app.get("/api/notebooks/{notebook_id}/export")
+def export_notebook(notebook_id: int):
+    """导出词书为 Excel 文件"""
+    try:
+        # 获取词书信息
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 获取词书名称
+        cursor.execute("SELECT name FROM notebooks WHERE id = ?", (notebook_id,))
+        notebook = cursor.fetchone()
+        if not notebook:
+            raise HTTPException(
+                status_code=404, detail={"code": "NOT_FOUND", "message": "词书不存在"}
+            )
+
+        notebook_name = notebook["name"]
+
+        # 获取词书中的单词
+        cursor.execute(
+            """
+            SELECT w.word, w.definition, w.note, we.add_time
+            FROM words w
+            JOIN word_entries we ON w.id = we.word_id
+            WHERE we.notebook_id = ?
+            ORDER BY we.add_time DESC
+        """,
+            (notebook_id,),
+        )
+
+        words = cursor.fetchall()
+        conn.close()
+
+        # 创建 DataFrame
+        df = pd.DataFrame(words, columns=["单词", "释义", "笔记", "添加时间"])
+
+        # 格式化时间列
+        df["添加时间"] = pd.to_datetime(df["添加时间"]).dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as temp_file:
+            # 将数据写入 Excel 文件
+            df.to_excel(temp_file.name, index=False, engine="openpyxl")
+
+            # 生成文件名
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            filename = f"{notebook_name}_{timestamp}.xlsx"
+
+            # 设置响应头
+            headers = {
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Access-Control-Expose-Headers": "Content-Disposition",
+            }
+
+            # 返回文件
+            return FileResponse(
+                path=temp_file.name,
+                filename=filename,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers=headers,
+            )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "EXPORT_ERROR", "message": f"导出失败: {str(e)}"},
         )

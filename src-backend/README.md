@@ -102,16 +102,59 @@
   }
   ```
 
-#### 7. 导出词书
+#### 7. 导出词书为 Excel
 
 - **路由**: `GET /api/notebooks/{notebook_id}/export`
 - **响应**: Excel 文件
+- **文件名格式**: `{词书名称}_{时间戳}.xlsx`
 - **错误响应**:
   ```json
   {
     "detail": {
-      "code": "EMPTY_NOTEBOOK",
-      "message": "词书中没有单词"
+      "code": "EXPORT_ERROR",
+      "message": "导出失败原因"
+    }
+  }
+  ```
+
+### 数据导入导出
+
+#### 1. 导出数据库
+
+- **路由**: `GET /api/export-db`
+- **响应**: ZIP 文件
+- **文件名格式**: `wordbook_backup_{时间戳}.zip`
+- **包含内容**:
+  - wordbook.db (数据库文件)
+  - covers/ (封面图片目录)
+- **错误响应**:
+  ```json
+  {
+    "detail": {
+      "code": "EXPORT_ERROR",
+      "message": "导出失败原因"
+    }
+  }
+  ```
+
+#### 2. 导入数据库
+
+- **路由**: `POST /api/import`
+- **请求体**: multipart/form-data
+  - file: ZIP 文件
+- **响应**:
+  ```json
+  {
+    "success": true,
+    "message": "数据库导入成功"
+  }
+  ```
+- **错误响应**:
+  ```json
+  {
+    "detail": {
+      "code": "INVALID_FILE_TYPE",
+      "message": "请上传 .zip 文件"
     }
   }
   ```
@@ -119,8 +162,8 @@
   ```json
   {
     "detail": {
-      "code": "EXPORT_ERROR",
-      "message": "导出失败原因"
+      "code": "INVALID_BACKUP",
+      "message": "无效的备份文件"
     }
   }
   ```
@@ -260,3 +303,7 @@
 - `WORD_NOT_FOUND`: 单词不存在
 - `NOTEBOOK_NOT_FOUND`: 词书不存在
 - `DATABASE_ERROR`: 数据库操作错误
+- `EXPORT_ERROR`: 导出失败
+- `IMPORT_ERROR`: 导入失败
+- `INVALID_FILE_TYPE`: 无效的文件类型
+- `INVALID_BACKUP`: 无效的备份文件
