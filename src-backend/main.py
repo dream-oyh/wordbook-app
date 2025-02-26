@@ -375,9 +375,13 @@ def translate(word: str, platform: str = "youdao"):
             platform = "youdao"
 
         result = search_word(word, platform)
+
+        # 构建包含发音的翻译文本
+        translation_text = f"英 [{result['uk_pronoun']}]  美 [{result['us_pronoun']}]\n\n{result['mean_zh']}"
+
         return {
             "word": result["word"],
-            "translation": result["mean_zh"],
+            "translation": translation_text,
             "uk_pronoun": result["uk_pronoun"],
             "us_pronoun": result["us_pronoun"],
         }
